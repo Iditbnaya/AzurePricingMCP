@@ -17,7 +17,7 @@ A **Model Context Protocol (MCP)** server that provides AI assistants with real-
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/charris-msft/azure-pricing-mcp.git
+git clone https://github.com/msftnadavbh/AzurePricingMCP.git
 cd azure-pricing-mcp
 
 # 2. Set up virtual environment
