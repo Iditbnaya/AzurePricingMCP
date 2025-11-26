@@ -85,7 +85,7 @@ python setup.py
 
 ```bash
 # Clone repository
-git clone [https://github.com/charris-msft/azure-pricing-mcp.git](https://github.com/msftnadavbh/AzurePricingMCP.git)
+git clone [https://github.com/msftnadavbh/AzurePricingMCP.git](https://github.com/msftnadavbh/AzurePricingMCP.git)
 cd azure-pricing-mcp
 
 # Create virtual environment
@@ -354,8 +354,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📬 Support
 
-- **Issues**: [GitHub Issues](https://github.com/charris-msft/azure-pricing-mcp/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/charris-msft/azure-pricing-mcp/discussions)
+- **Issues**: [GitHub Issues]([ttps://github.com/msftnadavbh/AzurePricingMCP/issues](https://github.com/msftnadavbh/AzurePricingMCP/issues))
+- **Discussions**: [GitHub Discussions]([https://github.com//msftnadavbh/AzurePricingMCP/discussions](https://github.com/msftnadavbh/AzurePricingMCP/discussions))
 
 ---
 
