@@ -81,20 +81,20 @@ SERVICE_NAME_MAPPINGS = {
 def normalize_sku_name(sku_name: str) -> tuple[list[str], str]:
     """
     Normalize SKU name to handle different formats and generate search variants.
-    
+
     Azure API uses different formats across VM generations:
     - v3, v4: "D4s v3", "D4s v4" (space format)
     - v5, v6: "Standard_D4s_v5" (ARM format with prefix)
-    
+
     This function generates multiple search terms to ensure we find the SKU
     regardless of input format.
-    
+
     Handles input formats like:
     - "D4s v5" -> searches: ["D4s v5", "D4s_v5"]
     - "Standard_D4s_v5" -> searches: ["D4s_v5", "D4s v5"]
     - "D4s_v5" -> searches: ["D4s_v5", "D4s v5"]
     - "D4s" -> searches: ["D4s"]
-    
+
     Returns:
         Tuple of (search_terms, display_name):
         - search_terms: List of search terms to try (in order of priority)
@@ -102,37 +102,37 @@ def normalize_sku_name(sku_name: str) -> tuple[list[str], str]:
     """
     if not sku_name:
         return ([], "")
-    
+
     original = sku_name.strip()
     normalized = original
-    
+
     # Remove "Standard_" or "Basic_" prefix if present (ARM format)
     prefixes_to_remove = ["Standard_", "Basic_", "standard_", "basic_"]
     for prefix in prefixes_to_remove:
         if normalized.startswith(prefix):
-            normalized = normalized[len(prefix):]
+            normalized = normalized[len(prefix) :]
             break
-    
+
     # Create display name with spaces
     display_name = normalized.replace("_", " ")
-    
+
     # Generate search term variants
     search_terms = []
-    
+
     # Variant 1: Underscore format (for v5, v6 SKUs like "Standard_D4s_v5")
     underscore_variant = normalized.replace(" ", "_")
     if underscore_variant not in search_terms:
         search_terms.append(underscore_variant)
-    
+
     # Variant 2: Space format (for v3, v4 SKUs like "D4s v3")
     space_variant = normalized.replace("_", " ")
     if space_variant not in search_terms:
         search_terms.append(space_variant)
-    
+
     # Variant 3: Original normalized (no prefix) - might be useful
     if normalized not in search_terms:
         search_terms.append(normalized)
-    
+
     return (search_terms, display_name)
 
 
@@ -505,17 +505,14 @@ class AzurePricingServer:
         Returns:
             Dict with ranked region recommendations and pricing details
         """
-        BATCH_SIZE = 5  # Number of parallel region queries per batch
-
         # Normalize the SKU name to handle different input formats
         # Returns list of search variants and a display name
         search_terms, display_sku = normalize_sku_name(sku_name)
 
         # Step 1: Discover all regions where this SKU is available
         # Try each search term variant until we get results
-        discovery_result = {"items": []}
-        successful_search_term = None
-        
+        discovery_result: dict[str, Any] = {"items": []}
+
         for search_term in search_terms:
             discovery_result = await self.search_azure_prices(
                 service_name=service_name,
@@ -525,7 +522,6 @@ class AzurePricingServer:
                 validate_sku=False,  # Skip validation for discovery
             )
             if discovery_result.get("items"):
-                successful_search_term = search_term
                 break
 
         if not discovery_result["items"]:
@@ -586,7 +582,6 @@ class AzurePricingServer:
         # Step 5: Calculate savings vs most expensive region
         if recommendations:
             max_price = max(r.get("retail_price", 0) for r in recommendations)
-            min_price = min(r.get("retail_price", 0) for r in recommendations)
 
             for rec in recommendations:
                 price = rec.get("retail_price", 0)
