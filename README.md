@@ -99,7 +99,7 @@ python scripts/install.py
 ```bash
 # Clone repository
 git clone https://github.com/msftnadavbh/AzurePricingMCP.git
-cd azure-pricing-mcp
+cd AzurePricingMCP
 
 # Create virtual environment
 python -m venv .venv
