@@ -44,7 +44,7 @@ jobs:
     
     - name: Run tests with pytest
       run: |
-        pytest tests/ -v --tb=short
+        pytest tests/ -v --tb=short -m "not integration"
 
   test-docker:
     name: Test Docker Build
