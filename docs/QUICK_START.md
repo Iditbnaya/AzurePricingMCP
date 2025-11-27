@@ -54,8 +54,6 @@ Press `Ctrl+C` to stop. If it starts without errors, you're ready!
 
 ### Option A: VS Code + GitHub Copilot
 
-#### Method 1: stdio with Python
-
 1. Create `.vscode/mcp.json` in your workspace (or this repo):
 
 ```jsonc
@@ -84,36 +82,6 @@ where python
 # or after activating venv:
 echo %VIRTUAL_ENV%\Scripts\python.exe
 ```
-
-#### Method 2: SSE with Docker 🐳
-
-1. Build and run the Docker container:
-
-```bash
-# Build the image
-docker build -t azure-pricing-mcp .
-
-# Run with port mapping
-docker run -d -p 8080:8080 --name azure-pricing azure-pricing-mcp
-
-# Verify it's running
-docker ps
-```
-
-2. Create `.vscode/mcp.json` or add to VS Code User settings:
-
-```json
-{
-  "servers": {
-    "azure-pricing": {
-      "type": "sse",
-      "url": "http://localhost:8080/sse"
-    }
-  }
-}
-```
-
-> 💡 **Tip**: SSE transport provides better isolation and allows multiple clients to connect to the same server instance.
 
 2. Restart the MCP server:
    - Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)

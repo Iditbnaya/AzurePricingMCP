@@ -3,6 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-1.0+-green.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://github.com/msftnadavbh/AzurePricingMCP/actions/workflows/test.yml/badge.svg)](https://github.com/msftnadavbh/AzurePricingMCP/actions/workflows/test.yml)
 
 A **Model Context Protocol (MCP)** server that provides AI assistants with real-time access to Azure retail pricing information. Query VM prices, compare costs across regions, estimate monthly bills, and discover available SKUs—all through natural language.
 
@@ -18,7 +19,7 @@ A **Model Context Protocol (MCP)** server that provides AI assistants with real-
 ```bash
 # 1. Clone the repository
 git clone https://github.com/msftnadavbh/AzurePricingMCP.git
-cd azure-pricing-mcp
+cd AzurePricingMCP
 
 # 2. Set up virtual environment
 python -m venv .venv
@@ -29,7 +30,7 @@ source .venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 
 # 4. Test the server
-python -m azure_pricing_server
+python -m azure_pricing_mcp
 ```
 
 Then configure your AI assistant (VS Code, Claude Desktop, etc.) to use the MCP server.
@@ -48,6 +49,7 @@ Then configure your AI assistant (VS Code, Claude Desktop, etc.) to use the MCP 
 | 🌍 **Multi-Currency** | Support for USD, EUR, GBP, and more |
 | 📊 **Real-time Data** | Live data from Azure Retail Prices API |
 | 🏷️ **Customer Discounts** | Apply discount percentages to all pricing queries |
+| 🐳 **Docker Support** | Run in containers for easy deployment and isolation |
 
 ---
 
@@ -66,19 +68,30 @@ Then configure your AI assistant (VS Code, Claude Desktop, etc.) to use the MCP 
 
 ## 📋 Installation
 
+> **📝 New to setup?** Check out [INSTALL.md](INSTALL.md) for detailed instructions or [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md) for a step-by-step checklist!  
+> **🐳 Prefer Docker?** See [DOCKER.md](DOCKER.md) for containerized deployment!
+
 ### Prerequisites
 
-- **Python 3.10+** 
+- **Python 3.10+** (or Docker for containerized deployment)
 - **pip** (Python package manager)
 
-### Option 1: Automated Setup
+### Option 1: Docker (Easiest)
+
+```bash
+# Or with Docker CLI
+docker build -t azure-pricing-mcp .
+docker run -i azure-pricing-mcp
+```
+
+### Option 2: Automated Setup
 
 ```bash
 # Windows PowerShell
-.\setup.ps1
+.\scripts\setup.ps1
 
 # Linux/Mac/Cross-platform
-python setup.py
+python scripts/install.py
 ```
 
 ### Option 2: Manual Setup
@@ -120,13 +133,14 @@ Ensure you have the [GitHub Copilot](https://marketplace.visualstudio.com/items?
 
 Create or edit `.vscode/mcp.json` in your workspace:
 
+**Option A: Using Python Virtual Environment**
 ```jsonc
 {
   "servers": {
     "azure-pricing": {
       "type": "stdio",
-      "command": "/absolute/path/to/azure-pricing-mcp/.venv/bin/python",
-      "args": ["-m", "azure_pricing_server"]
+      "command": "/absolute/path/to/AzurePricingMCP/.venv/bin/python",
+      "args": ["-m", "azure_pricing_mcp"]
     }
   }
 }
@@ -134,8 +148,42 @@ Create or edit `.vscode/mcp.json` in your workspace:
 
 > **Windows users**: Use the full path with forward slashes or escaped backslashes:
 > ```json
-> "command": "C:/path/to/azure-pricing-mcp/.venv/Scripts/python.exe"
+> "command": "C:/Users/YourUsername/Projects/AzurePricingMCP/.venv/Scripts/python.exe"
 > ```
+
+**Option B: Using Docker (stdio)** 🐳
+```json
+{
+  "servers": {
+    "azure-pricing": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "azure-pricing-mcp:latest"]
+    }
+  }
+}
+```
+
+**Option C: Using Docker (SSE - Server-Sent Events)** 🐳
+```bash
+# First, build and run the container with port mapping
+docker build -t azure-pricing-mcp .
+docker run -d -p 8080:8080 --name azure-pricing azure-pricing-mcp
+```
+
+Then configure `.vscode/mcp.json`:
+```json
+{
+  "servers": {
+    "azure-pricing": {
+      "type": "sse",
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}
+```
+
+> 💡 **SSE Benefits**: Better isolation through Docker, allows multiple clients to connect to the same server instance, and easier to debug with HTTP endpoints.
 
 ### Step 3: Restart MCP Server
 
@@ -162,13 +210,26 @@ Add to your Claude Desktop configuration file:
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
+**Option A: Using Python**
 ```json
 {
   "mcpServers": {
     "azure-pricing": {
       "command": "python",
-      "args": ["-m", "azure_pricing_server"],
-      "cwd": "/path/to/azure-pricing-mcp"
+      "args": ["-m", "azure_pricing_mcp"],
+      "cwd": "/path/to/AzurePricingMCP"
+    }
+  }
+}
+```
+
+**Option B: Using Docker** 🐳
+```json
+{
+  "mcpServers": {
+    "azure-pricing": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "azure-pricing-mcp:latest"]
     }
   }
 }
@@ -207,10 +268,10 @@ Standard_D32s_v6 in East US 2:
 
 ```bash
 # Run the server directly (should start without errors)
-python -m azure_pricing_server
+python -m azure_pricing_mcp
 
 # Run tests
-python test_mcp_server.py
+pytest tests/
 ```
 
 ### Test MCP Connection in VS Code
@@ -229,8 +290,8 @@ We welcome contributions! Here's how to get started:
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/YOUR_USERNAME/azure-pricing-mcp.git
-cd azure-pricing-mcp
+git clone https://github.com/YOUR_USERNAME/AzurePricingMCP.git
+cd AzurePricingMCP
 
 # Create development environment
 python -m venv .venv
@@ -243,7 +304,7 @@ pip install -r requirements.txt
 # ...
 
 # Test your changes
-python test_mcp_server.py
+pytest tests/
 ```
 
 ### Contribution Guidelines
@@ -275,20 +336,24 @@ python test_mcp_server.py
 ## 📁 Project Structure
 
 ```
-azure-pricing-mcp/
-├── azure_pricing_server.py   # Main MCP server implementation
-├── __init__.py               # Package initialization
-├── __main__.py               # Module entry point
+AzurePricingMCP/
+├── src/
+│   └── azure_pricing_mcp/
+│       ├── __init__.py       # Package initialization
+│       ├── __main__.py       # Module entry point
+│       ├── server.py         # Main MCP server implementation
+│       └── handlers.py       # Tool handlers
+├── scripts/
+│   ├── install.py            # Installation script
+│   ├── setup.ps1             # PowerShell setup script
+│   └── run_server.py         # Server runner
+├── tests/                    # Test suite
+├── docs/                     # Additional documentation
 ├── requirements.txt          # Python dependencies
-├── setup.py                  # Automated setup script
-├── setup.ps1                 # PowerShell setup script
-├── test_mcp_server.py        # Test suite
+├── pyproject.toml            # Package configuration
 ├── README.md                 # This file
 ├── QUICK_START.md            # Quick start guide
-├── USAGE_EXAMPLES.md         # Detailed usage examples
-├── config_examples.json      # Example configurations
-└── .vscode/
-    └── mcp.json              # VS Code MCP configuration
+└── USAGE_EXAMPLES.md         # Detailed usage examples
 ```
 
 ---
@@ -308,8 +373,10 @@ https://prices.azure.com/api/retail/prices
 ## 📚 Additional Documentation
 
 - **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
+- **[INSTALL.md](INSTALL.md)** - Detailed installation instructions
+- **[DOCKER.md](DOCKER.md)** - Docker containerization guide 🐳
 - **[USAGE_EXAMPLES.md](USAGE_EXAMPLES.md)** - Detailed usage examples and API responses
-- **[config_examples.json](config_examples.json)** - Example configurations
+- **[SETUP_CHECKLIST.md](SETUP_CHECKLIST.md)** - Installation verification checklist
 
 ---
 
@@ -346,16 +413,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Original Author**: [@charris-msft](https://github.com/charris-msft)
 - **Current Maintainer + Version 2.0**: [@msftnadavbh](https://github.com/msftnadavbh)
+- **Contributors**: 
+  - Michael Liav - Testing infrastructure and best practices
 - [Model Context Protocol](https://modelcontextprotocol.io/) - The protocol that makes this possible
 - [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices) - Microsoft's public pricing API
-- Contributors and the open-source community
+- All open-source contributors
 
 ---
 
 ## 📬 Support
 
-- **Issues**: [GitHub Issues]([ttps://github.com/msftnadavbh/AzurePricingMCP/issues](https://github.com/msftnadavbh/AzurePricingMCP/issues))
-- **Discussions**: [GitHub Discussions]([https://github.com//msftnadavbh/AzurePricingMCP/discussions](https://github.com/msftnadavbh/AzurePricingMCP/discussions))
+- **Issues**: [GitHub Issues](https://github.com/msftnadavbh/AzurePricingMCP/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/msftnadavbh/AzurePricingMCP/discussions)
 
 ---
 

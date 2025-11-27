@@ -64,19 +64,16 @@ Write-Host "=" * 50 -ForegroundColor Gray
 
 Write-Host ""
 Write-Host "📝 Next Steps:" -ForegroundColor Cyan
-Write-Host "1. Test API connectivity:" -ForegroundColor White
-Write-Host "   .venv\Scripts\python.exe test_api.py" -ForegroundColor Gray
+Write-Host "1. Test the MCP server:" -ForegroundColor White
+Write-Host "   .venv\Scripts\python.exe -m azure_pricing_mcp" -ForegroundColor Gray
 
-Write-Host "2. Test full MCP server:" -ForegroundColor White  
-Write-Host "   .venv\Scripts\python.exe test_server.py" -ForegroundColor Gray
+Write-Host "2. Run tests:" -ForegroundColor White  
+Write-Host "   .venv\Scripts\python.exe -m pytest tests/" -ForegroundColor Gray
 
-Write-Host "3. Run storage query simulation:" -ForegroundColor White
-Write-Host "   .venv\Scripts\python.exe simulate_storage_query.py" -ForegroundColor Gray
+Write-Host "3. Configure VS Code (.vscode/mcp.json) or Claude Desktop" -ForegroundColor White
+Write-Host "   See README.md for configuration examples" -ForegroundColor Gray
 
-Write-Host "4. Configure Claude Desktop (see claude_config_example.json)" -ForegroundColor White
-
-Write-Host "5. Start the MCP server:" -ForegroundColor White
-Write-Host "   .venv\Scripts\python.exe -m azure_pricing_server" -ForegroundColor Gray
+Write-Host "4. Start using the MCP server with your AI assistant!" -ForegroundColor White
 
 Write-Host ""
 Write-Host "📚 Documentation:" -ForegroundColor Cyan

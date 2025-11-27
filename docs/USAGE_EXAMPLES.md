@@ -449,5 +449,5 @@ Savings Plans Available:
 ---
 
 <p align="center">
-  <b>Questions?</b> Check <a href="README.md">README.md</a> or open an <a href="https://github.com/msftnadavbh/AzurePricingMCP/issues">issue</a>!
+  <b>Questions?</b> Check <a href="README.md">README.md</a> or open an <a href="https://github.com/charris-msft/azure-pricing-mcp/issues">issue</a>!
 </p>
