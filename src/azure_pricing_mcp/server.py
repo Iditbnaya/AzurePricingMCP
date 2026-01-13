@@ -7,6 +7,10 @@ A Model Context Protocol server that provides tools for querying Azure retail pr
 
 import asyncio
 import logging
+import re
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
 from typing import Any
 
 import aiohttp
@@ -27,6 +31,162 @@ MAX_RESULTS_PER_REQUEST = 1000
 MAX_RETRIES = 3
 RATE_LIMIT_RETRY_BASE_WAIT = 5  # seconds
 DEFAULT_CUSTOMER_DISCOUNT = 10.0  # percent
+
+# VM Retirement status configuration
+RETIRED_SIZES_URL = "https://raw.githubusercontent.com/MicrosoftDocs/azure-compute-docs/main/articles/virtual-machines/sizes/retirement/retired-sizes-list.md"
+PREVIOUS_GEN_URL = "https://raw.githubusercontent.com/MicrosoftDocs/azure-compute-docs/main/articles/virtual-machines/sizes/previous-gen-sizes-list.md"
+RETIREMENT_CACHE_TTL = timedelta(hours=24)
+
+
+class RetirementStatus(Enum):
+    """VM series retirement status levels."""
+
+    CURRENT = "current"  # Fully supported, not deprecated
+    PREVIOUS_GEN = "previous_gen"  # Newer version available, still supported
+    RETIREMENT_ANNOUNCED = "retirement_announced"  # Has planned retirement date
+    RETIRED = "retired"  # No longer available
+
+
+@dataclass
+class VMSeriesRetirementInfo:
+    """Information about a VM series retirement status."""
+
+    series_name: str
+    status: RetirementStatus
+    retirement_date: str | None = None  # e.g., "November 15, 2028"
+    replacement: str | None = None  # e.g., "Lsv3, Lasv3, or Lsv4"
+    migration_guide_url: str | None = None
+
+
+# Fallback retirement data when GitHub fetch fails
+# Based on Microsoft docs as of January 2026
+FALLBACK_RETIREMENT_DATA: dict[str, VMSeriesRetirementInfo] = {
+    # Storage optimized - retiring
+    "Lsv2": VMSeriesRetirementInfo(
+        series_name="Lsv2-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="November 15, 2028",
+        replacement="Lsv3, Lasv3, Lsv4, or Lasv4 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    "Ls": VMSeriesRetirementInfo(
+        series_name="Ls-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="May 1, 2028",
+        replacement="Lsv3, Lasv3, Lsv4, or Lasv4 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    # General purpose - retiring
+    "Dv2": VMSeriesRetirementInfo(
+        series_name="Dv2-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="May 1, 2028",
+        replacement="Dv5, Dasv5, or Ddsv5 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    "Dsv2": VMSeriesRetirementInfo(
+        series_name="Dsv2-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="May 1, 2028",
+        replacement="Ddsv5 or Ddsv6 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    "Av2": VMSeriesRetirementInfo(
+        series_name="Av2-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="November 15, 2028",
+        replacement="Dasv5 or Dadsv5 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    "Bv1": VMSeriesRetirementInfo(
+        series_name="B-series (v1)",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="November 15, 2028",
+        replacement="Bsv2, Basv2, or Bpsv2 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    # Compute optimized - retiring
+    "Fsv2": VMSeriesRetirementInfo(
+        series_name="Fsv2-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="November 15, 2028",
+        replacement="Fasv6 or Falsv6 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    "Fs": VMSeriesRetirementInfo(
+        series_name="Fs-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="November 15, 2028",
+        replacement="Fasv6 or Falsv6 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    # Memory optimized - retiring
+    "G": VMSeriesRetirementInfo(
+        series_name="G-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="November 15, 2028",
+        replacement="Ev5 or Edsv5 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    "Gs": VMSeriesRetirementInfo(
+        series_name="Gs-series",
+        status=RetirementStatus.RETIREMENT_ANNOUNCED,
+        retirement_date="November 15, 2028",
+        replacement="Edsv5 or Edsv6 series",
+        migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+    ),
+    # Previous generation - not retiring but newer available
+    "Edsv4": VMSeriesRetirementInfo(
+        series_name="Edsv4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Edsv5 or Edsv6 series",
+    ),
+    "Esv4": VMSeriesRetirementInfo(
+        series_name="Esv4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Esv5 or Esv6 series",
+    ),
+    "Ev4": VMSeriesRetirementInfo(
+        series_name="Ev4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Ev5 or Ev6 series",
+    ),
+    "Ddsv4": VMSeriesRetirementInfo(
+        series_name="Ddsv4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Ddsv5 or Ddsv6 series",
+    ),
+    "Dsv4": VMSeriesRetirementInfo(
+        series_name="Dsv4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Dsv5 or Dsv6 series",
+    ),
+    "Dv4": VMSeriesRetirementInfo(
+        series_name="Dv4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Dv5 or Dv6 series",
+    ),
+    "Easv4": VMSeriesRetirementInfo(
+        series_name="Easv4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Easv5 or Easv6 series",
+    ),
+    "Eav4": VMSeriesRetirementInfo(
+        series_name="Eav4-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Eav5 or Eav6 series",
+    ),
+    "Esv3": VMSeriesRetirementInfo(
+        series_name="Esv3-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Esv5 or Esv6 series",
+    ),
+    "Ev3": VMSeriesRetirementInfo(
+        series_name="Ev3-series",
+        status=RetirementStatus.PREVIOUS_GEN,
+        replacement="Ev5 or Ev6 series",
+    ),
+}
 
 # Common service name mappings for fuzzy search
 # Maps user-friendly terms to official Azure service names
@@ -141,6 +301,9 @@ class AzurePricingServer:
 
     def __init__(self):
         self.session: aiohttp.ClientSession | None = None
+        # Retirement status cache
+        self._retirement_cache: dict[str, VMSeriesRetirementInfo] | None = None
+        self._retirement_cache_time: datetime | None = None
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -203,6 +366,428 @@ class AzurePricingServer:
         if last_exception:
             raise last_exception
         raise RuntimeError("Request failed without exception")
+
+    async def _fetch_retirement_data(self) -> dict[str, VMSeriesRetirementInfo]:
+        """Fetch VM retirement status data from Microsoft docs on GitHub.
+
+        Returns the parsed retirement data, or fallback data on failure.
+        """
+        if not self.session:
+            logger.warning("HTTP session not initialized, using fallback retirement data")
+            return FALLBACK_RETIREMENT_DATA.copy()
+
+        retirement_data: dict[str, VMSeriesRetirementInfo] = {}
+        session = self.session  # Local reference for type narrowing
+
+        try:
+            # Fetch both markdown files in parallel
+            async def fetch_text(url: str) -> str:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    if response.status == 200:
+                        return await response.text()
+                    return ""
+
+            results = await asyncio.gather(
+                fetch_text(RETIRED_SIZES_URL),
+                fetch_text(PREVIOUS_GEN_URL),
+                return_exceptions=True,
+            )
+            retired_result, previous_gen_result = results
+
+            # Handle exceptions from gather and ensure string type
+            retired_md: str = ""
+            previous_gen_md: str = ""
+
+            if isinstance(retired_result, Exception):
+                logger.warning(f"Failed to fetch retired sizes: {retired_result}")
+            elif isinstance(retired_result, str):
+                retired_md = retired_result
+
+            if isinstance(previous_gen_result, Exception):
+                logger.warning(f"Failed to fetch previous-gen sizes: {previous_gen_result}")
+            elif isinstance(previous_gen_result, str):
+                previous_gen_md = previous_gen_result
+
+            # Parse retired sizes markdown (takes precedence)
+            if retired_md:
+                retirement_data.update(self._parse_retired_sizes_md(retired_md))
+
+            # Parse previous-gen sizes markdown (only add if not already in retirement_data)
+            if previous_gen_md:
+                previous_gen_data = self._parse_previous_gen_md(previous_gen_md)
+                for key, value in previous_gen_data.items():
+                    if key not in retirement_data:
+                        retirement_data[key] = value
+
+            # If we got any data, return it; otherwise use fallback
+            if retirement_data:
+                logger.info(f"Fetched retirement data for {len(retirement_data)} VM series")
+                return retirement_data
+            else:
+                logger.warning("No retirement data parsed, using fallback")
+                return FALLBACK_RETIREMENT_DATA.copy()
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch retirement data: {e}, using fallback")
+            return FALLBACK_RETIREMENT_DATA.copy()
+
+    def _parse_retired_sizes_md(self, md_content: str) -> dict[str, VMSeriesRetirementInfo]:
+        """Parse the retired-sizes-list.md markdown content."""
+        result: dict[str, VMSeriesRetirementInfo] = {}
+
+        # Match table rows with format:
+        # | Series name | Retirement Status | Retirement Announcement | Planned Retirement Date | Migration Guide |
+        # Example: | Lsv2-series | **Announced** | [10/15/25](...) | 11/15/28 | [Migration Guide](...) |
+
+        # Split by lines and process each line that looks like a table row
+        for line in md_content.split("\n"):
+            line = line.strip()
+            if not line.startswith("|") or "---" in line:
+                continue
+
+            # Split by | and clean up
+            parts = [p.strip() for p in line.split("|")]
+            parts = [p for p in parts if p]  # Remove empty strings
+
+            if len(parts) < 4:
+                continue
+
+            series_name = parts[0].strip()
+            status_text = parts[1].strip().lower()
+
+            # Skip header rows
+            if series_name.lower() in ["series name", "series", ""]:
+                continue
+
+            # Get retirement date (usually in column 4, index 3)
+            retirement_date = parts[3].strip() if len(parts) > 3 else ""
+
+            # Determine status - handle **bold** markdown
+            status_clean = status_text.replace("*", "").strip()
+            if "retired" in status_clean and "announced" not in status_clean:
+                status = RetirementStatus.RETIRED
+            elif "announced" in status_clean:
+                status = RetirementStatus.RETIREMENT_ANNOUNCED
+            else:
+                continue  # Skip rows we can't parse
+
+            # Extract series key (e.g., "Lsv2-series" -> "Lsv2")
+            series_key = self._extract_series_key(series_name)
+            if not series_key:
+                continue
+
+            # Get replacement recommendation based on series
+            replacement = self._get_replacement_for_series(series_key)
+
+            result[series_key] = VMSeriesRetirementInfo(
+                series_name=series_name if "-series" in series_name else f"{series_name}-series",
+                status=status,
+                retirement_date=retirement_date if retirement_date and retirement_date != "-" else None,
+                replacement=replacement,
+                migration_guide_url="https://learn.microsoft.com/en-us/azure/virtual-machines/migration/sizes/d-ds-dv2-dsv2-ls-series-migration-guide",
+            )
+
+        return result
+
+    def _parse_previous_gen_md(self, md_content: str) -> dict[str, VMSeriesRetirementInfo]:
+        """Parse the previous-gen-sizes-list.md markdown content."""
+        result: dict[str, VMSeriesRetirementInfo] = {}
+
+        # Process line by line for previous-gen format
+        for line in md_content.split("\n"):
+            line = line.strip()
+            if not line.startswith("|") or "---" in line:
+                continue
+
+            # Split by | and clean up
+            parts = [p.strip() for p in line.split("|")]
+            parts = [p for p in parts if p]  # Remove empty strings
+
+            if len(parts) < 2:
+                continue
+
+            series_name = parts[0].strip()
+            status_text = parts[1].strip().lower()
+
+            # Skip header rows
+            if series_name.lower() in ["series name", "series", "", "replacement series"]:
+                continue
+
+            # Extract just the link text part (inside []) for checking
+            # Status like "[Capacity limited](url)" - we want just "capacity limited"
+            link_match = re.search(r"\[([^\]]+)\]", status_text)
+            status_check = link_match.group(1).lower() if link_match else status_text
+
+            # Skip if this is a "retirement announced" entry - covered in retired sizes
+            if "retirement announced" in status_check:
+                continue
+
+            # Check if it's a previous-gen indicator
+            if "next-gen available" not in status_check and "capacity limited" not in status_check:
+                continue
+
+            # Handle "X and Y-series" format - create entries for both
+            series_keys = self._extract_all_series_keys(series_name)
+
+            for series_key in series_keys:
+                # Skip if already in result (retired takes precedence)
+                if series_key in result:
+                    continue
+
+                replacement = self._get_replacement_for_series(series_key)
+
+                result[series_key] = VMSeriesRetirementInfo(
+                    series_name=f"{series_key}-series",
+                    status=RetirementStatus.PREVIOUS_GEN,
+                    replacement=replacement,
+                )
+
+        return result
+
+    def _extract_all_series_keys(self, series_name: str) -> list[str]:
+        """Extract all series keys from a series name that may contain multiple series.
+
+        Examples:
+            "Edv4 and Edsv4-series" -> ["Edv4", "Edsv4"]
+            "Ev3 and Esv3-series" -> ["Ev3", "Esv3"]
+            "Dv2-series" -> ["Dv2"]
+        """
+        results = []
+
+        # Remove -series suffix
+        name = series_name.replace("-series", "").replace("-Series", "").strip()
+
+        # Split by " and " or "/"
+        if " and " in name:
+            parts = name.split(" and ")
+        elif "/" in name:
+            parts = name.split("/")
+        else:
+            parts = [name]
+
+        for part in parts:
+            key = self._extract_series_key(part.strip())
+            if key:
+                results.append(key)
+
+        return results
+
+    def _extract_series_key(self, series_name: str) -> str | None:
+        """Extract the series key from a series name.
+
+        Examples:
+            "Lsv2-series" -> "Lsv2"
+            "D-series" -> "D"
+            "Ev3 and Esv3-series" -> "Ev3"  (returns first one)
+            "Standard_M192idms_v2" -> "M192idms_v2"
+        """
+        # Remove common suffixes
+        name = series_name.replace("-series", "").replace("-Series", "").strip()
+
+        # Handle "X and Y" format - take first one
+        if " and " in name:
+            name = name.split(" and ")[0].strip()
+
+        # Handle "X/Y" format - take first one
+        if "/" in name:
+            name = name.split("/")[0].strip()
+
+        # Remove "Standard_" prefix
+        if name.startswith("Standard_"):
+            name = name[9:]
+
+        # Remove parenthetical notes like "(V1)"
+        name = re.sub(r"\s*\([^)]*\)", "", name).strip()
+
+        return name if name else None
+
+    def _get_replacement_for_series(self, series_key: str) -> str | None:
+        """Get replacement recommendation for a series."""
+        # Map of series to recommended replacements
+        replacements = {
+            # Storage optimized
+            "Ls": "Lsv3, Lasv3, Lsv4, or Lasv4 series",
+            "Lsv2": "Lsv3, Lasv3, Lsv4, or Lasv4 series",
+            # General purpose
+            "D": "Dv5, Dasv5, or Ddsv5 series",
+            "Ds": "Dsv5, Dadsv5, or Ddsv5 series",
+            "Dv2": "Dv5, Dasv5, or Ddsv5 series",
+            "Dsv2": "Dsv5, Dadsv5, or Ddsv5 series",
+            "Dv3": "Dv5 or Dv6 series",
+            "Dsv3": "Dsv5 or Dsv6 series",
+            "Dv4": "Dv5 or Dv6 series",
+            "Dsv4": "Dsv5 or Dsv6 series",
+            "Ddsv4": "Ddsv5 or Ddsv6 series",
+            "Dasv4": "Dasv5 or Dasv6 series",
+            "Dadsv4": "Dadsv5 or Dadsv6 series",
+            "Av2": "Dasv5 or Dadsv5 series",
+            "B": "Bsv2, Basv2, or Bpsv2 series",
+            "Bv1": "Bsv2, Basv2, or Bpsv2 series",
+            # Compute optimized
+            "F": "Fasv6 or Falsv6 series",
+            "Fs": "Fasv6 or Falsv6 series",
+            "Fsv2": "Fasv6 or Falsv6 series",
+            # Memory optimized
+            "E": "Ev5 or Ev6 series",
+            "Ev3": "Ev5 or Ev6 series",
+            "Esv3": "Esv5 or Esv6 series",
+            "Ev4": "Ev5 or Ev6 series",
+            "Esv4": "Esv5 or Esv6 series",
+            "Edsv4": "Edsv5 or Edsv6 series",
+            "Easv4": "Easv5 or Easv6 series",
+            "Eav4": "Eav5 or Eav6 series",
+            "G": "Ev5 or Edsv5 series",
+            "Gs": "Edsv5 or Edsv6 series",
+        }
+        return replacements.get(series_key)
+
+    def _get_series_from_sku(self, sku_name: str) -> str | None:
+        """Extract the VM series identifier from a SKU name.
+
+        Examples:
+            "Standard_L32s_v2" -> "Lsv2"
+            "L32s v2" -> "Lsv2"
+            "D4s v3" -> "Dsv3"
+            "Standard_D4s_v5" -> "Dsv5"
+            "E32ds v4" -> "Edsv4"
+            "Standard_E32bds_v5" -> "Ebdsv5"
+        """
+        if not sku_name:
+            return None
+
+        # Normalize: remove Standard_ prefix and convert to consistent format
+        normalized = sku_name.strip()
+        for prefix in ["Standard_", "Basic_", "standard_", "basic_"]:
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix) :]
+                break
+
+        # Replace underscores with spaces for consistent parsing
+        normalized = normalized.replace("_", " ")
+
+        # Pattern to extract series: letter(s) + optional size number + letter suffix(es) + version
+        # Examples: "L32s v2" -> L + s + v2, "D4s v3" -> D + s + v3, "E32ds v4" -> E + ds + v4
+        match = re.match(r"^([A-Za-z]+)\d*([a-z]*)\s*v?(\d+)?", normalized, re.IGNORECASE)
+
+        if match:
+            prefix = match.group(1)  # e.g., "L", "D", "E"
+            suffix = match.group(2) or ""  # e.g., "s", "ds", "bds"
+            version = match.group(3)  # e.g., "2", "3", "4", "5"
+
+            # Build series key
+            series_key = f"{prefix}{suffix}"
+            if version:
+                series_key += f"v{version}"
+
+            return series_key
+
+        return None
+
+    async def _get_retirement_data(self) -> dict[str, VMSeriesRetirementInfo]:
+        """Get retirement data, using cache if valid or fetching fresh data."""
+        now = datetime.now()
+
+        # Check if cache is valid
+        if (
+            self._retirement_cache is not None
+            and self._retirement_cache_time is not None
+            and (now - self._retirement_cache_time) < RETIREMENT_CACHE_TTL
+        ):
+            return self._retirement_cache
+
+        # Fetch fresh data
+        self._retirement_cache = await self._fetch_retirement_data()
+        self._retirement_cache_time = now
+        return self._retirement_cache
+
+    async def _check_skus_retirement_status(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Check retirement status for SKUs in the results.
+
+        Returns a list of retirement warnings for any retiring/previous-gen SKUs found.
+        """
+        if not items:
+            return []
+
+        # Get retirement data
+        retirement_data = await self._get_retirement_data()
+
+        # Collect unique series from results
+        seen_series: set[str] = set()
+        warnings: list[dict[str, Any]] = []
+
+        for item in items:
+            sku_name = item.get("skuName") or item.get("armSkuName") or ""
+            if not sku_name:
+                continue
+
+            series_key = self._get_series_from_sku(sku_name)
+            if not series_key or series_key in seen_series:
+                continue
+
+            seen_series.add(series_key)
+
+            # Check for match in retirement data
+            retirement_info = self._match_series_to_retirement(series_key, retirement_data)
+
+            if retirement_info and retirement_info.status != RetirementStatus.CURRENT:
+                warning = {
+                    "series_name": retirement_info.series_name,
+                    "status": retirement_info.status.value,
+                    "sku_example": sku_name,
+                }
+                if retirement_info.retirement_date:
+                    warning["retirement_date"] = retirement_info.retirement_date
+                if retirement_info.replacement:
+                    warning["replacement"] = retirement_info.replacement
+                if retirement_info.migration_guide_url:
+                    warning["migration_guide_url"] = retirement_info.migration_guide_url
+
+                warnings.append(warning)
+
+        return warnings
+
+    def _match_series_to_retirement(
+        self, series_key: str, retirement_data: dict[str, VMSeriesRetirementInfo]
+    ) -> VMSeriesRetirementInfo | None:
+        """Match a series key to retirement data with smart matching.
+
+        Matching rules:
+        1. Exact match (e.g., "Lsv2" matches "Lsv2")
+        2. Series key without version matches data key (e.g., "Dsv5" won't match "Dsv2")
+        3. Avoid false positives like "Lsv4" matching "Ls"
+        """
+        # Exact match first
+        if series_key in retirement_data:
+            return retirement_data[series_key]
+
+        # Extract the base and version from series_key
+        # e.g., "Lsv2" -> base="Ls", version="v2"
+        # e.g., "Edsv4" -> base="Eds", version="v4"
+        match = re.match(r"^([A-Za-z]+)(v\d+)?$", series_key, re.IGNORECASE)
+        if not match:
+            return None
+
+        version = match.group(2)  # e.g., "v2", "v4", or None
+
+        # For versioned series, require exact base + version match in retirement data
+        # e.g., "Lsv2" should match "Lsv2" but not "Ls" or "Lsv3"
+        if version:
+            # Already tried exact match above, so if we have a version, no match
+            # Unless the retirement data has the unversioned base as retiring
+            # (which would mean ALL versions are retiring - not typical)
+
+            # Check if the base+version is in data
+            if series_key.lower() in [k.lower() for k in retirement_data]:
+                for k, v in retirement_data.items():
+                    if k.lower() == series_key.lower():
+                        return v
+
+            # Don't match versioned series to unversioned retirement entries
+            # e.g., "Lsv4" should NOT match "Ls" entry
+            return None
+
+        # For unversioned series (rare in practice), try exact match only
+        return None
 
     async def search_azure_prices(
         self,
@@ -267,6 +852,11 @@ class AzurePricingServer:
         if discount_percentage is not None and discount_percentage > 0 and isinstance(items, list):
             items = self._apply_discount_to_items(items, discount_percentage)
 
+        # Check retirement status for VM SKUs
+        retirement_warnings = []
+        if items and service_name and "virtual machine" in service_name.lower():
+            retirement_warnings = await self._check_skus_retirement_status(items)
+
         result = {
             "items": items,
             "count": len(items) if isinstance(items, list) else 0,
@@ -274,6 +864,10 @@ class AzurePricingServer:
             "currency": currency_code,
             "filters_applied": filter_conditions,
         }
+
+        # Add retirement warnings if any
+        if retirement_warnings:
+            result["retirement_warnings"] = retirement_warnings
 
         # Add discount info if applied
         if discount_percentage is not None and discount_percentage > 0:

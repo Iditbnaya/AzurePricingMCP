@@ -100,6 +100,35 @@ async def _handle_price_search(pricing_server, arguments: dict) -> list[TextCont
         if result["count"] > 0:
             response_text = f"Found {result['count']} Azure pricing results:\n\n"
 
+            # Add retirement warnings FIRST (most important)
+            if "retirement_warnings" in result and result["retirement_warnings"]:
+                for warning in result["retirement_warnings"]:
+                    status = warning.get("status", "")
+                    if status == "retirement_announced":
+                        response_text += f"⚠️ **RETIREMENT WARNING: {warning['series_name']}**\n"
+                        response_text += "   Status: Retirement Announced\n"
+                        if warning.get("retirement_date"):
+                            response_text += f"   Retirement Date: {warning['retirement_date']}\n"
+                        if warning.get("replacement"):
+                            response_text += f"   Recommendation: Migrate to {warning['replacement']}\n"
+                        if warning.get("migration_guide_url"):
+                            response_text += f"   Migration Guide: {warning['migration_guide_url']}\n"
+                        response_text += "\n"
+                    elif status == "retired":
+                        response_text += f"🚫 **RETIRED: {warning['series_name']}**\n"
+                        response_text += "   Status: No longer available\n"
+                        if warning.get("replacement"):
+                            response_text += f"   Recommendation: Use {warning['replacement']} instead\n"
+                        if warning.get("migration_guide_url"):
+                            response_text += f"   Migration Guide: {warning['migration_guide_url']}\n"
+                        response_text += "\n"
+                    elif status == "previous_gen":
+                        response_text += f"ℹ️ **PREVIOUS GENERATION: {warning['series_name']}**\n"
+                        response_text += "   Status: Newer versions available\n"
+                        if warning.get("replacement"):
+                            response_text += f"   Recommendation: Consider upgrading to {warning['replacement']}\n"
+                        response_text += "\n"
+
             # Add discount information if applied
             if "discount_applied" in result:
                 response_text += f"💰 **Customer Discount Applied: {result['discount_applied']['percentage']}%**\n"
