@@ -13,6 +13,7 @@ Real-world examples of using the Azure Pricing MCP Server with VS Code Copilot o
 - [Region Recommendations](#region-recommendations)
 - [Cost Estimations](#cost-estimations)
 - [SKU Discovery](#sku-discovery)
+- [Retirement Warnings](#retirement-warnings)
 - [Storage Pricing](#storage-pricing)
 - [Sample API Responses](#sample-api-responses)
 - [Reference Tables](#reference-tables)
@@ -538,6 +539,59 @@ Savings Plans Available:
 | ✅ Use fuzzy discovery | `azure_sku_discovery` for unknown services |
 | ✅ Specify currency if needed | Add `currency_code=EUR` |
 | ✅ Filter by price type | `Consumption`, `Reservation`, `DevTestConsumption` |
+
+---
+
+## Retirement Warnings
+
+The server automatically warns you when querying VM SKUs that are retiring, retired, or previous-generation.
+
+### Querying a Retiring SKU
+
+**Query:**
+```
+What's the price of L32s v2 in East US?
+```
+
+**Sample Response:**
+```
+⚠️ RETIREMENT WARNING: Lsv2-series
+   Status: Retirement Announced
+   Retirement Date: 11/15/28
+   Recommendation: Migrate to Lsv3, Lasv3, Lsv4, or Lasv4 series
+   Migration Guide: https://learn.microsoft.com/azure/virtual-machines/...
+
+Found 5 Azure pricing results:
+- L32s v2 Spot: $0.313/hour
+- L32s v2 Low Priority: $0.496/hour
+- L32s v2: $2.480/hour
+```
+
+### Querying a Previous-Generation SKU
+
+**Query:**
+```
+What's the price of E32 v3 in East US?
+```
+
+**Sample Response:**
+```
+ℹ️ PREVIOUS GENERATION: Ev3-series
+   Status: Newer versions available
+   Recommendation: Consider upgrading to Ev5 or Ev6 series
+
+Found 3 Azure pricing results:
+- E32 v3: $2.016/hour
+- E32 v3 Low Priority: $0.403/hour
+```
+
+### Warning Types
+
+| Icon | Status | Meaning |
+|------|--------|--------|
+| ⚠️ | Retirement Announced | SKU will be retired - plan migration |
+| 🚫 | Retired | SKU is no longer available |
+| ℹ️ | Previous Generation | Newer versions available, consider upgrading |
 
 ---
 

@@ -51,6 +51,7 @@ Then configure your AI assistant (VS Code, Claude Desktop, etc.) to use the MCP 
 | 💱 **Multi-Currency** | Support for USD, EUR, GBP, and more |
 | 📊 **Real-time Data** | Live data from Azure Retail Prices API |
 | 🏷️ **Customer Discounts** | Apply discount percentages to all pricing queries |
+| ⚠️ **Retirement Warnings** | Automatic alerts for retiring/retired VM SKUs with migration guidance |
 | 🐳 **Docker Support** | Run in containers for easy deployment and isolation |
 
 ---
@@ -266,6 +267,34 @@ Standard_D32s_v6 in East US 2:
 
 ---
 
+## ⚠️ Retirement Status Warnings
+
+The server automatically checks VM SKUs against Microsoft's official retirement documentation and warns you when querying SKUs that are:
+
+| Status | Icon | Description |
+|--------|------|-------------|
+| **Retirement Announced** | ⚠️ | SKU has a planned retirement date - migrate soon |
+| **Retired** | 🚫 | SKU is no longer available for new deployments |
+| **Previous Generation** | ℹ️ | Newer versions available - consider upgrading |
+
+### Example Warning Output
+
+```
+⚠️ RETIREMENT WARNING: Lsv2-series
+   Status: Retirement Announced
+   Retirement Date: 11/15/28
+   Recommendation: Migrate to Lsv3, Lasv3, Lsv4, or Lasv4 series
+   Migration Guide: https://learn.microsoft.com/azure/virtual-machines/...
+
+ℹ️ PREVIOUS GENERATION: Ev3-series
+   Status: Newer versions available
+   Recommendation: Consider upgrading to Ev5 or Ev6 series
+```
+
+The retirement data is fetched dynamically from Microsoft's official documentation and cached for 24 hours.
+
+---
+
 ## 🧪 Testing
 
 ### Verify Installation
@@ -416,7 +445,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **Original Author**: [@charris-msft](https://github.com/charris-msft)
-- **Current Maintainer + Version 2.1**: [@msftnadavbh](https://github.com/msftnadavbh)
+- **Current Maintainer + Version 2.3**: [@msftnadavbh](https://github.com/msftnadavbh)
 - **Contributors**: 
   - [@notoriousmic](https://github.com/notoriousmic) - Testing infrastructure and best practices
 - [Model Context Protocol](https://modelcontextprotocol.io/) - The protocol that makes this possible
