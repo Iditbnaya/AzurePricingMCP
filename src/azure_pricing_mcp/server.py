@@ -377,28 +377,36 @@ class AzurePricingServer:
             return FALLBACK_RETIREMENT_DATA.copy()
 
         retirement_data: dict[str, VMSeriesRetirementInfo] = {}
+        session = self.session  # Local reference for type narrowing
 
         try:
             # Fetch both markdown files in parallel
             async def fetch_text(url: str) -> str:
-                async with self.session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
                     if response.status == 200:
                         return await response.text()
                     return ""
 
-            retired_md, previous_gen_md = await asyncio.gather(
+            results = await asyncio.gather(
                 fetch_text(RETIRED_SIZES_URL),
                 fetch_text(PREVIOUS_GEN_URL),
                 return_exceptions=True,
             )
+            retired_result, previous_gen_result = results
 
-            # Handle exceptions from gather
-            if isinstance(retired_md, Exception):
-                logger.warning(f"Failed to fetch retired sizes: {retired_md}")
-                retired_md = ""
-            if isinstance(previous_gen_md, Exception):
-                logger.warning(f"Failed to fetch previous-gen sizes: {previous_gen_md}")
-                previous_gen_md = ""
+            # Handle exceptions from gather and ensure string type
+            retired_md: str = ""
+            previous_gen_md: str = ""
+
+            if isinstance(retired_result, Exception):
+                logger.warning(f"Failed to fetch retired sizes: {retired_result}")
+            elif isinstance(retired_result, str):
+                retired_md = retired_result
+
+            if isinstance(previous_gen_result, Exception):
+                logger.warning(f"Failed to fetch previous-gen sizes: {previous_gen_result}")
+            elif isinstance(previous_gen_result, str):
+                previous_gen_md = previous_gen_result
 
             # Parse retired sizes markdown (takes precedence)
             if retired_md:
