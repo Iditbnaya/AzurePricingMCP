@@ -84,7 +84,6 @@ Then configure your AI assistant (VS Code, Claude Desktop, etc.) to use the MCP 
 ### Option 1: Docker (Easiest)
 
 ```bash
-# Or with Docker CLI
 docker build -t azure-pricing-mcp .
 docker run -i azure-pricing-mcp
 ```
@@ -99,7 +98,7 @@ docker run -i azure-pricing-mcp
 python scripts/install.py
 ```
 
-### Option 2: Manual Setup
+### Option 3: Manual Setup
 
 ```bash
 # Clone repository
@@ -115,15 +114,6 @@ source .venv/bin/activate    # Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
-```
-
-### Dependencies
-
-```
-mcp>=1.0.0
-aiohttp>=3.9.0
-pydantic>=2.0.0
-requests>=2.31.0
 ```
 
 ---
@@ -310,7 +300,7 @@ pytest tests/
 ### Test MCP Connection in VS Code
 
 1. Open Command Palette → **MCP: List Servers**
-2. Verify `azure-pricing` shows 6 tools
+2. Verify `azure-pricing` shows 8 tools
 3. Open Copilot Chat and ask a pricing question
 
 ---
@@ -353,16 +343,8 @@ pytest tests/
 - Follow PEP 8 guidelines
 - Add type hints for function parameters and return values
 - Include docstrings for public functions
-- Test your changes before submitting
-
-### Ideas for Contributions
-
-- [ ] Add support for Azure Reserved Instances pricing
-- [ ] Implement caching for frequently requested prices
-- [ ] Add more currency support
-- [ ] Create unit tests for all tools
-- [ ] Add support for Azure Government/China regions
-- [ ] Implement price alerts/notifications
+- Run `black`, `ruff`, and `mypy` before submitting
+- Test your changes with `pytest tests/`
 
 ---
 
@@ -417,7 +399,7 @@ https://prices.azure.com/api/retail/prices
 
 ### Tools not appearing in VS Code
 
-1. **Check Python syntax**: Ensure no syntax errors in `azure_pricing_server.py`
+1. **Check Python syntax**: Run `python -m azure_pricing_mcp` to check for errors
 2. **Verify path**: Use absolute paths in `.vscode/mcp.json`
 3. **Restart server**: Command Palette → MCP: List Servers → Restart
 
