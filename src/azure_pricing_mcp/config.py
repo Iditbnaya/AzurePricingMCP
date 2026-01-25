@@ -1,4 +1,5 @@
 """Configuration constants for Azure Pricing MCP Server."""
+
 import os
 from datetime import timedelta
 
