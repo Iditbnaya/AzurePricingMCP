@@ -64,9 +64,7 @@ async def test_server_creation():
 async def test_all_tool_handlers(services):
     """Test all tool handlers work."""
     # Test price search
-    result = await services["handlers"].handle_price_search(
-        {"service_name": "Virtual Machines", "limit": 5}
-    )
+    result = await services["handlers"].handle_price_search({"service_name": "Virtual Machines", "limit": 5})
     assert len(result) > 0
 
     # Test price compare
@@ -76,9 +74,7 @@ async def test_all_tool_handlers(services):
     assert len(result) > 0
 
     # Test cost estimate
-    search = await services["pricing"].search_prices(
-        service_name="Virtual Machines", region="eastus", limit=1
-    )
+    search = await services["pricing"].search_prices(service_name="Virtual Machines", region="eastus", limit=1)
     if search["items"]:
         sku = search["items"][0]["skuName"]
         result = await services["handlers"].handle_cost_estimate(
@@ -87,9 +83,7 @@ async def test_all_tool_handlers(services):
         assert len(result) > 0
 
     # Test discover SKUs
-    result = await services["handlers"].handle_discover_skus(
-        {"service_name": "Virtual Machines", "limit": 10}
-    )
+    result = await services["handlers"].handle_discover_skus({"service_name": "Virtual Machines", "limit": 10})
     assert len(result) > 0
 
     # Test SKU discovery

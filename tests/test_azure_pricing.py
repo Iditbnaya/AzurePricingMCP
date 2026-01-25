@@ -160,9 +160,7 @@ class TestPricingService:
     async def test_search_azure_prices_basic(self, pricing_service, mock_pricing_response):
         """Test basic price search."""
         with patch.object(pricing_service._client, "fetch_prices", return_value=mock_pricing_response):
-            result = await pricing_service.search_prices(
-                service_name="Virtual Machines", sku_name="D4s v3", limit=10
-            )
+            result = await pricing_service.search_prices(service_name="Virtual Machines", sku_name="D4s v3", limit=10)
 
             assert result["count"] == 1
             assert result["currency"] == "USD"

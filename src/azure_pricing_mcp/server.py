@@ -13,7 +13,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool
 
 from .client import AzurePricingClient
-from .handlers import ToolHandlers, register_tool_handlers
+from .handlers import ToolHandlers
 from .services import PricingService, RetirementService, SKUService
 from .tools import get_tool_definitions
 
@@ -63,7 +63,7 @@ def create_server() -> tuple[Server, AzurePricingServer]:
         """Handle tool calls with proper session management."""
         async with pricing_server:
             handlers = pricing_server.tool_handlers
-            
+
             if name == "azure_price_search":
                 return await handlers.handle_price_search(arguments)
             elif name == "azure_price_compare":
@@ -82,6 +82,7 @@ def create_server() -> tuple[Server, AzurePricingServer]:
                 return await handlers.handle_customer_discount(arguments)
             else:
                 from mcp.types import TextContent
+
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
     return server, pricing_server

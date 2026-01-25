@@ -149,11 +149,13 @@ class SKUService:
             )
 
             if result["items"]:
-                suggestions.append({
-                    "service_name": azure_service,
-                    "match_reason": f"Partial match for '{service_name}'",
-                    "sample_items": result["items"][:3],
-                })
+                suggestions.append(
+                    {
+                        "service_name": azure_service,
+                        "match_reason": f"Partial match for '{service_name}'",
+                        "sample_items": result["items"][:3],
+                    }
+                )
 
         # Broad search if no matches
         if not suggestions:
@@ -183,11 +185,13 @@ class SKUService:
                 )
 
                 if service_result["items"]:
-                    suggestions.append({
-                        "service_name": service,
-                        "match_reason": f"Contains '{search_term}'",
-                        "sample_items": service_result["items"][:2],
-                    })
+                    suggestions.append(
+                        {
+                            "service_name": service,
+                            "match_reason": f"Contains '{search_term}'",
+                            "sample_items": service_result["items"][:2],
+                        }
+                    )
 
         return {
             "items": [],

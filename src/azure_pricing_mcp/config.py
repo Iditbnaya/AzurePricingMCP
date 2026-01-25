@@ -1,5 +1,5 @@
 """Configuration constants for Azure Pricing MCP Server."""
-
+import os
 from datetime import timedelta
 
 # Azure Retail Prices API configuration
@@ -15,7 +15,8 @@ DEFAULT_CUSTOMER_DISCOUNT = 10.0  # percent
 # SSL verification configuration
 # Set to False if behind a corporate proxy with self-signed certificates
 # Can also be set via environment variable AZURE_PRICING_SSL_VERIFY=false
-import os
+
+
 SSL_VERIFY = os.environ.get("AZURE_PRICING_SSL_VERIFY", "true").lower() != "false"
 
 # VM Retirement status configuration

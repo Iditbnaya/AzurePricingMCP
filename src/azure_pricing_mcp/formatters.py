@@ -210,7 +210,9 @@ Showing top: {result['showing_top']}
         rank_display = {1: "🥇 1", 2: "🥈 2", 3: "🥉 3"}.get(i, str(i))
         spot_display = f"${spot_price:.6f}" if spot_price else "N/A"
 
-        response_text += f"| {rank_display} | {region} | {location} | ${price:.6f}/{unit} | {spot_display} | {savings:.1f}% |\n"
+        response_text += (
+            f"| {rank_display} | {region} | {location} | ${price:.6f}/{unit} | {spot_display} | {savings:.1f}% |\n"
+        )
 
     # Spot pricing note
     spot_available = [rec for rec in recommendations if rec.get("spot_price")]
@@ -221,7 +223,9 @@ Showing top: {result['showing_top']}
             spot_price = rec.get("spot_price", 0)
             on_demand = rec.get("retail_price", 0)
             spot_savings = ((on_demand - spot_price) / on_demand * 100) if on_demand > 0 else 0
-            response_text += f"   • {location}: Spot @ ${spot_price:.4f}/hr ({spot_savings:.0f}% cheaper than On-Demand)\n"
+            response_text += (
+                f"   • {location}: Spot @ ${spot_price:.4f}/hr ({spot_savings:.0f}% cheaper than On-Demand)\n"
+            )
         response_text += "   ⚠️ Note: Spot VMs can be evicted when Azure needs capacity\n"
 
     if "discount_applied" in result and recommendations and "original_price" in recommendations[0]:

@@ -99,9 +99,7 @@ class TestHTTPTransportTools:
     @pytest.mark.asyncio
     async def test_price_search_tool_via_handler(self, services):
         """Test azure_price_search tool through handler."""
-        result = await services["pricing"].search_prices(
-            service_name="Virtual Machines", region="eastus", limit=5
-        )
+        result = await services["pricing"].search_prices(service_name="Virtual Machines", region="eastus", limit=5)
 
         assert "items" in result
         assert "count" in result
@@ -152,9 +150,7 @@ class TestHTTPTransportTools:
     @pytest.mark.asyncio
     async def test_discover_skus_tool_via_handler(self, services):
         """Test azure_discover_skus tool through handler."""
-        result = await services["sku"].discover_skus(
-            service_name="Virtual Machines", region="eastus", limit=10
-        )
+        result = await services["sku"].discover_skus(service_name="Virtual Machines", region="eastus", limit=10)
 
         assert "skus" in result
         assert "total_skus" in result

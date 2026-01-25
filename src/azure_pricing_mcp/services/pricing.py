@@ -25,7 +25,7 @@ def normalize_sku_name(sku_name: str) -> tuple[list[str], str]:
     prefixes_to_remove = ["Standard_", "Basic_", "standard_", "basic_"]
     for prefix in prefixes_to_remove:
         if normalized.startswith(prefix):
-            normalized = normalized[len(prefix):]
+            normalized = normalized[len(prefix) :]
             break
 
     display_name = normalized.replace("_", " ")
@@ -155,13 +155,15 @@ class PricingService:
                         or item_sku_lower in sku_lower
                         or any(word in item_sku_lower for word in sku_lower.split() if word)
                     ):
-                        suggestions.append({
-                            "sku_name": item_sku,
-                            "product_name": item.get("productName", "Unknown"),
-                            "price": item.get("retailPrice", 0),
-                            "unit": item.get("unitOfMeasure", "Unknown"),
-                            "region": item.get("armRegionName", "Unknown"),
-                        })
+                        suggestions.append(
+                            {
+                                "sku_name": item_sku,
+                                "product_name": item.get("productName", "Unknown"),
+                                "price": item.get("retailPrice", 0),
+                                "unit": item.get("unitOfMeasure", "Unknown"),
+                                "region": item.get("armRegionName", "Unknown"),
+                            }
+                        )
 
         seen_skus: set[str] = set()
         unique_suggestions = []
@@ -238,14 +240,16 @@ class PricingService:
 
                     if result["items"]:
                         item = result["items"][0]
-                        comparisons.append({
-                            "region": region,
-                            "sku_name": item.get("skuName"),
-                            "retail_price": item.get("retailPrice"),
-                            "unit_of_measure": item.get("unitOfMeasure"),
-                            "product_name": item.get("productName"),
-                            "meter_name": item.get("meterName"),
-                        })
+                        comparisons.append(
+                            {
+                                "region": region,
+                                "sku_name": item.get("skuName"),
+                                "retail_price": item.get("retailPrice"),
+                                "unit_of_measure": item.get("unitOfMeasure"),
+                                "product_name": item.get("productName"),
+                                "meter_name": item.get("meterName"),
+                            }
+                        )
                 except Exception as e:
                     logger.warning(f"Failed to get prices for region {region}: {e}")
         else:
@@ -625,16 +629,18 @@ class PricingService:
                         if monthly_od_cost > 0:
                             break_even_months = total_ri_cost / monthly_od_cost
 
-                    comparison_results.append({
-                        "sku": ri.get("skuName"),
-                        "region": ri.get("armRegionName"),
-                        "term": term,
-                        "ri_hourly": round(ri_hourly, 5),
-                        "od_hourly": od_price,
-                        "savings_percentage": round(savings_percent, 2),
-                        "break_even_months": round(break_even_months, 1) if break_even_months else None,
-                        "annual_savings": round((od_price - ri_hourly) * 8760, 2),
-                    })
+                    comparison_results.append(
+                        {
+                            "sku": ri.get("skuName"),
+                            "region": ri.get("armRegionName"),
+                            "term": term,
+                            "ri_hourly": round(ri_hourly, 5),
+                            "od_hourly": od_price,
+                            "savings_percentage": round(savings_percent, 2),
+                            "break_even_months": round(break_even_months, 1) if break_even_months else None,
+                            "annual_savings": round((od_price - ri_hourly) * 8760, 2),
+                        }
+                    )
 
         return comparison_results
 

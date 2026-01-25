@@ -161,11 +161,7 @@ class RetirementService:
         now = datetime.now()
 
         # Check if cache is valid
-        if (
-            self._cache is not None
-            and self._cache_time is not None
-            and (now - self._cache_time) < RETIREMENT_CACHE_TTL
-        ):
+        if self._cache is not None and self._cache_time is not None and (now - self._cache_time) < RETIREMENT_CACHE_TTL:
             return self._cache
 
         # Fetch fresh data
@@ -364,7 +360,7 @@ class RetirementService:
         normalized = sku_name.strip()
         for prefix in ["Standard_", "Basic_", "standard_", "basic_"]:
             if normalized.startswith(prefix):
-                normalized = normalized[len(prefix):]
+                normalized = normalized[len(prefix) :]
                 break
 
         normalized = normalized.replace("_", " ")
