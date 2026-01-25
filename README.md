@@ -357,7 +357,16 @@ AzurePricingMCP/
 │       ├── __init__.py       # Package initialization
 │       ├── __main__.py       # Module entry point
 │       ├── server.py         # Main MCP server implementation
-│       └── handlers.py       # Tool handlers
+│       ├── handlers.py       # Tool handlers
+│       ├── client.py         # Azure Pricing API client
+│       ├── config.py         # Configuration constants
+│       ├── formatters.py     # Response formatting
+│       ├── models.py         # Data models
+│       ├── tools.py          # Tool definitions
+│       └── services/         # Business logic services
+│           ├── pricing.py    # Pricing operations
+│           ├── retirement.py # VM retirement tracking
+│           └── sku.py        # SKU discovery
 ├── scripts/
 │   ├── install.py            # Installation script
 │   ├── setup.ps1             # PowerShell setup script
@@ -368,7 +377,7 @@ AzurePricingMCP/
 ├── pyproject.toml            # Package configuration
 ├── README.md                 # This file
 ├── QUICK_START.md            # Quick start guide
-└── USAGE_EXAMPLES.md         # Detailed usage examples
+└── INSTALL.md                # Detailed installation guide
 ```
 
 ---

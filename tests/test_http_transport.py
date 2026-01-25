@@ -9,7 +9,24 @@ from mcp.server.sse import SseServerTransport
 from starlette.responses import Response
 from starlette.routing import Mount, Route
 
+from azure_pricing_mcp.client import AzurePricingClient
 from azure_pricing_mcp.server import create_server
+from azure_pricing_mcp.services import PricingService, SKUService
+from azure_pricing_mcp.services.retirement import RetirementService
+
+
+@pytest.fixture
+async def services():
+    """Create all services for testing."""
+    async with AzurePricingClient() as client:
+        retirement_service = RetirementService(client)
+        pricing_service = PricingService(client, retirement_service)
+        sku_service = SKUService(pricing_service)
+        yield {
+            "pricing": pricing_service,
+            "sku": sku_service,
+            "retirement": retirement_service,
+        }
 
 
 class TestHTTPTransportConfiguration:
@@ -36,9 +53,10 @@ class TestHTTPTransportConfiguration:
 
     def test_server_creation(self):
         """Test MCP server can be created."""
-        server = create_server()
+        server, pricing_server = create_server()
         assert server is not None
         assert server.name == "azure-pricing"
+        assert pricing_server is not None
 
 
 class TestHTTPTransportTools:
@@ -49,7 +67,7 @@ class TestHTTPTransportTools:
         """Test that server exposes expected tools."""
         from mcp.types import ListToolsRequest
 
-        server = create_server()
+        server, _ = create_server()
 
         # Get tools list using the ListToolsRequest class as key
         handler = server.request_handlers.get(ListToolsRequest)
@@ -60,7 +78,6 @@ class TestHTTPTransportTools:
         result = await handler(request)
 
         # Handler returns ServerResult wrapping ListToolsResult
-        # ServerResult has a 'root' attribute containing the actual result
         tools_list = result.root.tools if hasattr(result, "root") else result.tools
 
         # Verify expected tools are present
@@ -78,125 +95,123 @@ class TestHTTPTransportTools:
         for expected_tool in expected_tools:
             assert expected_tool in tool_names, f"Missing tool: {expected_tool}"
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_price_search_tool_via_handler(self):
+    async def test_price_search_tool_via_handler(self, services):
         """Test azure_price_search tool through handler."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        result = await services["pricing"].search_prices(
+            service_name="Virtual Machines", region="eastus", limit=5
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            result = await pricing_server.search_azure_prices(service_name="Virtual Machines", region="eastus", limit=5)
+        assert "items" in result
+        assert "count" in result
+        assert isinstance(result["items"], list)
+        assert result["count"] >= 0
 
-            assert "items" in result
-            assert "count" in result
-            assert isinstance(result["items"], list)
-            assert result["count"] >= 0
-
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_cost_estimate_tool_via_handler(self):
+    async def test_cost_estimate_tool_via_handler(self, services):
         """Test azure_cost_estimate tool through handler."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        # First find a valid SKU
+        search_result = await services["pricing"].search_prices(
+            service_name="Virtual Machines", region="eastus", limit=1
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            # First find a valid SKU
-            search_result = await pricing_server.search_azure_prices(
-                service_name="Virtual Machines", region="eastus", limit=1
+        if search_result["items"]:
+            item = search_result["items"][0]
+            sku_name = item.get("skuName")
+
+            # Now estimate costs
+            result = await services["pricing"].estimate_costs(
+                service_name="Virtual Machines",
+                sku_name=sku_name,
+                region="eastus",
+                hours_per_month=730,
             )
 
-            if search_result["items"]:
-                item = search_result["items"][0]
-                sku_name = item.get("skuName")
+            assert "on_demand_pricing" in result
+            assert "monthly_cost" in result["on_demand_pricing"]
+            assert "hourly_rate" in result["on_demand_pricing"]
 
-                # Now estimate costs
-                result = await pricing_server.estimate_costs(
-                    service_name="Virtual Machines", sku_name=sku_name, region="eastus", hours_per_month=730
-                )
-
-                assert "on_demand_pricing" in result
-                assert "monthly_cost" in result["on_demand_pricing"]
-                assert "hourly_rate" in result["on_demand_pricing"]
-
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_price_compare_tool_via_handler(self):
+    async def test_price_compare_tool_via_handler(self, services):
         """Test azure_price_compare tool through handler."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        result = await services["pricing"].compare_prices(
+            service_name="Virtual Machines",
+            regions=["eastus", "westus"],
+            currency_code="USD",
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            result = await pricing_server.compare_prices(
-                service_name="Virtual Machines", regions=["eastus", "westus"], currency_code="USD"
-            )
+        assert "comparisons" in result
+        assert "comparison_type" in result
+        assert result["comparison_type"] == "regions"
+        assert isinstance(result["comparisons"], list)
 
-            assert "comparisons" in result
-            assert "comparison_type" in result
-            assert result["comparison_type"] == "regions"
-            assert isinstance(result["comparisons"], list)
-
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_discover_skus_tool_via_handler(self):
+    async def test_discover_skus_tool_via_handler(self, services):
         """Test azure_discover_skus tool through handler."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        result = await services["sku"].discover_skus(
+            service_name="Virtual Machines", region="eastus", limit=10
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            result = await pricing_server.discover_skus(service_name="Virtual Machines", region="eastus", limit=10)
+        assert "skus" in result
+        assert "total_skus" in result
+        assert isinstance(result["skus"], list)
 
-            assert "skus" in result
-            assert "total_skus" in result
-            assert isinstance(result["skus"], list)
-
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_sku_discovery_with_fuzzy_matching(self):
+    async def test_sku_discovery_with_fuzzy_matching(self, services):
         """Test azure_sku_discovery tool with fuzzy service name matching."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        # Test with user-friendly name
+        result = await services["sku"].discover_service_skus(
+            service_hint="vm", limit=5  # Should match "Virtual Machines"
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            # Test with user-friendly name
-            result = await pricing_server.discover_service_skus(
-                service_hint="vm", limit=5  # Should match "Virtual Machines"
-            )
+        # Should either find SKUs or provide suggestions
+        assert "service_found" in result or "suggestions" in result
+        assert "original_search" in result
+        assert result["original_search"] == "vm"
 
-            # Should either find SKUs or provide suggestions
-            assert "service_found" in result or "suggestions" in result
-            assert "original_search" in result
-            assert result["original_search"] == "vm"
-
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_customer_discount_tool_via_handler(self):
+    async def test_customer_discount_tool_via_handler(self, services):
         """Test get_customer_discount tool through handler."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        result = await services["pricing"].get_customer_discount()
 
-        async with AzurePricingServer() as pricing_server:
-            result = await pricing_server.get_customer_discount()
+        assert "discount_percentage" in result
+        assert "customer_id" in result
+        assert result["discount_percentage"] == 10.0  # Default discount
 
-            assert "discount_percentage" in result
-            assert "customer_id" in result
-            assert result["discount_percentage"] == 10.0  # Default discount
-
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_discount_application_in_search(self):
+    async def test_discount_application_in_search(self, services):
         """Test that discount is properly applied in price search."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        # Search without discount
+        result_no_discount = await services["pricing"].search_prices(
+            service_name="Virtual Machines", region="eastus", limit=1
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            # Search without discount
-            result_no_discount = await pricing_server.search_azure_prices(
-                service_name="Virtual Machines", region="eastus", limit=1
-            )
+        # Search with discount
+        result_with_discount = await services["pricing"].search_prices(
+            service_name="Virtual Machines",
+            region="eastus",
+            limit=1,
+            discount_percentage=10.0,
+        )
 
-            # Search with discount
-            result_with_discount = await pricing_server.search_azure_prices(
-                service_name="Virtual Machines", region="eastus", limit=1, discount_percentage=10.0
-            )
+        if result_no_discount["items"] and result_with_discount["items"]:
+            original_price = result_no_discount["items"][0]["retailPrice"]
+            discounted_price = result_with_discount["items"][0]["retailPrice"]
 
-            if result_no_discount["items"] and result_with_discount["items"]:
-                original_price = result_no_discount["items"][0]["retailPrice"]
-                discounted_price = result_with_discount["items"][0]["retailPrice"]
+            # Verify discount was applied (10% off)
+            expected_discounted_price = original_price * 0.9
+            assert abs(discounted_price - expected_discounted_price) < 0.001
 
-                # Verify discount was applied (10% off)
-                expected_discounted_price = original_price * 0.9
-                assert abs(discounted_price - expected_discounted_price) < 0.001
-
-                # Verify discount metadata is present
-                assert "discount_applied" in result_with_discount
-                assert result_with_discount["discount_applied"]["percentage"] == 10.0
+            # Verify discount metadata is present
+            assert "discount_applied" in result_with_discount
+            assert result_with_discount["discount_applied"]["percentage"] == 10.0
 
 
 class TestHTTPServerConfiguration:
@@ -204,58 +219,50 @@ class TestHTTPServerConfiguration:
 
     def test_server_configuration_defaults(self):
         """Test default HTTP server configuration."""
-        from azure_pricing_mcp.server import create_server
-
-        server = create_server()
+        server, _ = create_server()
         assert server is not None
         assert server.name == "azure-pricing"
 
     @pytest.mark.asyncio
     async def test_server_context_manager(self):
-        """Test server can be used as async context manager."""
-        from azure_pricing_mcp.server import AzurePricingServer
-
-        async with AzurePricingServer() as server:
-            assert server.session is not None
-
-        # After context exit, session should be closed
-        # Note: We can't easily test this without inspecting internal state
+        """Test client can be used as async context manager."""
+        async with AzurePricingClient() as client:
+            assert client.session is not None
 
 
 class TestHTTPErrorHandling:
     """Test error handling in HTTP transport."""
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_invalid_service_name_handling(self):
+    async def test_invalid_service_name_handling(self, services):
         """Test handling of invalid service names."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        result = await services["pricing"].search_prices(
+            service_name="NonExistentService12345",
+            limit=5,
+            validate_sku=False,  # Disable validation to test raw behavior
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            result = await pricing_server.search_azure_prices(
-                service_name="NonExistentService12345",
-                limit=5,
-                validate_sku=False,  # Disable validation to test raw behavior
-            )
+        # Should return empty results, not error
+        assert result["count"] == 0
+        assert result["items"] == []
 
-            # Should return empty results, not error
-            assert result["count"] == 0
-            assert result["items"] == []
-
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_sku_validation_with_suggestions(self):
+    async def test_sku_validation_with_suggestions(self, services):
         """Test SKU validation provides suggestions."""
-        from azure_pricing_mcp.server import AzurePricingServer
+        result = await services["pricing"].search_prices(
+            service_name="Virtual Machines",
+            sku_name="NonExistentSKU12345",
+            limit=5,
+            validate_sku=True,
+        )
 
-        async with AzurePricingServer() as pricing_server:
-            result = await pricing_server.search_azure_prices(
-                service_name="Virtual Machines", sku_name="NonExistentSKU12345", limit=5, validate_sku=True
-            )
-
-            # Should have validation info with suggestions
-            if "sku_validation" in result:
-                assert "suggestions" in result["sku_validation"]
-                assert "original_sku" in result["sku_validation"]
-                assert result["sku_validation"]["original_sku"] == "NonExistentSKU12345"
+        # Should have validation info with suggestions
+        if "sku_validation" in result:
+            assert "suggestions" in result["sku_validation"]
+            assert "original_sku" in result["sku_validation"]
+            assert result["sku_validation"]["original_sku"] == "NonExistentSKU12345"
 
 
 if __name__ == "__main__":

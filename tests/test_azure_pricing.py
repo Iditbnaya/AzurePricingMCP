@@ -6,15 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from mcp.types import TextContent
 
-from azure_pricing_mcp.handlers import (
-    _handle_cost_estimate,
-    _handle_customer_discount,
-    _handle_discover_skus,
-    _handle_price_compare,
-    _handle_price_search,
-    _handle_sku_discovery,
-)
-from azure_pricing_mcp.server import AzurePricingServer
+from azure_pricing_mcp.client import AzurePricingClient
+from azure_pricing_mcp.handlers import ToolHandlers
+from azure_pricing_mcp.services import PricingService, SKUService
+from azure_pricing_mcp.services.retirement import RetirementService
 
 
 @pytest.fixture
@@ -84,35 +79,59 @@ def mock_pricing_response_with_savings() -> dict[str, Any]:
 
 
 @pytest.fixture
-async def pricing_server():
-    """Create a pricing server instance for testing."""
-    server = AzurePricingServer()
-    async with server:
-        yield server
+async def pricing_client():
+    """Create a pricing client instance for testing."""
+    client = AzurePricingClient()
+    async with client:
+        yield client
 
 
-class TestAzurePricingServer:
-    """Test suite for AzurePricingServer class."""
+@pytest.fixture
+async def retirement_service(pricing_client):
+    """Create a retirement service instance for testing."""
+    return RetirementService(pricing_client)
+
+
+@pytest.fixture
+async def pricing_service(pricing_client, retirement_service):
+    """Create a pricing service instance for testing."""
+    return PricingService(pricing_client, retirement_service)
+
+
+@pytest.fixture
+async def sku_service(pricing_service):
+    """Create a SKU service instance for testing."""
+    return SKUService(pricing_service)
+
+
+@pytest.fixture
+async def tool_handlers(pricing_service, sku_service):
+    """Create tool handlers instance for testing."""
+    return ToolHandlers(pricing_service, sku_service)
+
+
+class TestAzurePricingClient:
+    """Test suite for AzurePricingClient class."""
 
     @pytest.mark.asyncio
-    async def test_make_request_success(self, pricing_server, mock_pricing_response):
+    async def test_make_request_success(self, pricing_client, mock_pricing_response):
         """Test successful API request."""
-        with patch.object(pricing_server.session, "get") as mock_get:
+        with patch.object(pricing_client.session, "get") as mock_get:
             mock_response = AsyncMock()
             mock_response.status = 200
             mock_response.json = AsyncMock(return_value=mock_pricing_response)
             mock_response.raise_for_status = MagicMock()
             mock_get.return_value.__aenter__.return_value = mock_response
 
-            result = await pricing_server._make_request("https://test.com")
+            result = await pricing_client.make_request("https://test.com")
 
             assert result == mock_pricing_response
             mock_get.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_make_request_rate_limit_retry(self, pricing_server):
+    async def test_make_request_rate_limit_retry(self, pricing_client):
         """Test rate limit handling with retries."""
-        with patch.object(pricing_server.session, "get") as mock_get:
+        with patch.object(pricing_client.session, "get") as mock_get:
             # First call returns 429, second succeeds
             mock_response_429 = AsyncMock()
             mock_response_429.status = 429
@@ -128,16 +147,20 @@ class TestAzurePricingServer:
             ]
 
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await pricing_server._make_request("https://test.com")
+                result = await pricing_client.make_request("https://test.com")
 
             assert result == {"Items": []}
             assert mock_get.call_count == 2
 
+
+class TestPricingService:
+    """Test suite for PricingService class."""
+
     @pytest.mark.asyncio
-    async def test_search_azure_prices_basic(self, pricing_server, mock_pricing_response):
+    async def test_search_azure_prices_basic(self, pricing_service, mock_pricing_response):
         """Test basic price search."""
-        with patch.object(pricing_server, "_make_request", return_value=mock_pricing_response):
-            result = await pricing_server.search_azure_prices(
+        with patch.object(pricing_service._client, "fetch_prices", return_value=mock_pricing_response):
+            result = await pricing_service.search_prices(
                 service_name="Virtual Machines", sku_name="D4s v3", limit=10
             )
 
@@ -147,10 +170,10 @@ class TestAzurePricingServer:
             assert result["items"][0]["skuName"] == "D4s v3"
 
     @pytest.mark.asyncio
-    async def test_search_azure_prices_with_discount(self, pricing_server, mock_pricing_response):
+    async def test_search_azure_prices_with_discount(self, pricing_service, mock_pricing_response):
         """Test price search with discount applied."""
-        with patch.object(pricing_server, "_make_request", return_value=mock_pricing_response):
-            result = await pricing_server.search_azure_prices(
+        with patch.object(pricing_service._client, "fetch_prices", return_value=mock_pricing_response):
+            result = await pricing_service.search_prices(
                 service_name="Virtual Machines",
                 sku_name="D4s v3",
                 discount_percentage=10.0,
@@ -168,26 +191,26 @@ class TestAzurePricingServer:
             assert result["items"][0]["originalPrice"] == original_price
 
     @pytest.mark.asyncio
-    async def test_search_azure_prices_no_results(self, pricing_server):
+    async def test_search_azure_prices_no_results(self, pricing_service):
         """Test price search with no results."""
         empty_response = {"Items": [], "NextPageLink": None, "Count": 0}
 
-        with patch.object(pricing_server, "_make_request", return_value=empty_response):
-            result = await pricing_server.search_azure_prices(service_name="NonExistent", sku_name="Invalid")
+        with patch.object(pricing_service._client, "fetch_prices", return_value=empty_response):
+            result = await pricing_service.search_prices(service_name="NonExistent", sku_name="Invalid")
 
             assert result["count"] == 0
             assert len(result["items"]) == 0
 
     @pytest.mark.asyncio
-    async def test_compare_prices_across_regions(self, pricing_server, mock_pricing_response):
+    async def test_compare_prices_across_regions(self, pricing_service, mock_pricing_response):
         """Test price comparison across regions."""
-        with patch.object(pricing_server, "search_azure_prices") as mock_search:
+        with patch.object(pricing_service, "search_prices") as mock_search:
             mock_search.return_value = {
                 "items": [mock_pricing_response["Items"][0]],
                 "count": 1,
             }
 
-            result = await pricing_server.compare_prices(
+            result = await pricing_service.compare_prices(
                 service_name="Virtual Machines",
                 sku_name="D4s v3",
                 regions=["eastus", "westus"],
@@ -198,15 +221,15 @@ class TestAzurePricingServer:
             assert mock_search.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_estimate_costs(self, pricing_server, mock_pricing_response_with_savings):
+    async def test_estimate_costs(self, pricing_service, mock_pricing_response_with_savings):
         """Test cost estimation with savings plans."""
-        with patch.object(pricing_server, "search_azure_prices") as mock_search:
+        with patch.object(pricing_service, "search_prices") as mock_search:
             mock_search.return_value = {
                 "items": [mock_pricing_response_with_savings["Items"][0]],
                 "count": 1,
             }
 
-            result = await pricing_server.estimate_costs(
+            result = await pricing_service.estimate_costs(
                 service_name="Virtual Machines",
                 sku_name="D4s v3",
                 region="eastus",
@@ -220,15 +243,15 @@ class TestAzurePricingServer:
             assert len(result["savings_plans"]) == 2
 
     @pytest.mark.asyncio
-    async def test_estimate_costs_with_discount(self, pricing_server, mock_pricing_response):
+    async def test_estimate_costs_with_discount(self, pricing_service, mock_pricing_response):
         """Test cost estimation with customer discount."""
-        with patch.object(pricing_server, "search_azure_prices") as mock_search:
+        with patch.object(pricing_service, "search_prices") as mock_search:
             mock_search.return_value = {
                 "items": [mock_pricing_response["Items"][0]],
                 "count": 1,
             }
 
-            result = await pricing_server.estimate_costs(
+            result = await pricing_service.estimate_costs(
                 service_name="Virtual Machines",
                 sku_name="D4s v3",
                 region="eastus",
@@ -242,7 +265,43 @@ class TestAzurePricingServer:
             assert result["on_demand_pricing"]["hourly_rate"] == pytest.approx(discounted_hourly)
 
     @pytest.mark.asyncio
-    async def test_discover_skus(self, pricing_server, mock_pricing_response):
+    async def test_get_customer_discount(self, pricing_service):
+        """Test customer discount retrieval."""
+        result = await pricing_service.get_customer_discount()
+
+        assert result["discount_percentage"] == 10.0
+        assert result["customer_id"] == "default"
+        assert result["discount_type"] == "standard"
+
+    @pytest.mark.asyncio
+    async def test_get_customer_discount_custom_id(self, pricing_service):
+        """Test customer discount with custom ID."""
+        result = await pricing_service.get_customer_discount(customer_id="customer123")
+
+        assert result["customer_id"] == "customer123"
+        assert result["discount_percentage"] == 10.0
+
+    @pytest.mark.asyncio
+    async def test_apply_discount_to_items(self, pricing_service):
+        """Test discount application to price items."""
+        items = [
+            {"retailPrice": 100.0, "skuName": "Test1"},
+            {"retailPrice": 200.0, "skuName": "Test2"},
+        ]
+
+        discounted = pricing_service._apply_discount_to_items(items, 20.0)
+
+        assert discounted[0]["retailPrice"] == 80.0
+        assert discounted[0]["originalPrice"] == 100.0
+        assert discounted[1]["retailPrice"] == 160.0
+        assert discounted[1]["originalPrice"] == 200.0
+
+
+class TestSKUService:
+    """Test suite for SKUService class."""
+
+    @pytest.mark.asyncio
+    async def test_discover_skus(self, sku_service, mock_pricing_response):
         """Test SKU discovery."""
         mock_response = {
             "Items": [
@@ -253,63 +312,31 @@ class TestAzurePricingServer:
             "Count": 2,
         }
 
-        with patch.object(pricing_server, "_make_request", return_value=mock_response):
-            result = await pricing_server.discover_skus(service_name="Virtual Machines", limit=100)
+        with patch.object(sku_service._pricing_service._client, "fetch_prices", return_value=mock_response):
+            result = await sku_service.discover_skus(service_name="Virtual Machines", limit=100)
 
             assert result["total_skus"] == 2
             assert len(result["skus"]) == 2
             assert result["service_name"] == "Virtual Machines"
 
     @pytest.mark.asyncio
-    async def test_discover_service_skus_exact_match(self, pricing_server, mock_pricing_response):
+    async def test_discover_service_skus_exact_match(self, sku_service, mock_pricing_response):
         """Test SKU discovery with exact service match."""
-        with patch.object(pricing_server, "search_azure_prices_with_fuzzy_matching") as mock_search:
+        with patch.object(sku_service, "search_with_fuzzy_matching") as mock_search:
             mock_search.return_value = {
                 "items": [mock_pricing_response["Items"][0]],
                 "suggestion_used": "Virtual Machines",
                 "match_type": "exact_mapping",
             }
 
-            result = await pricing_server.discover_service_skus(service_hint="vm", limit=30)
+            result = await sku_service.discover_service_skus(service_hint="vm", limit=30)
 
             assert result["service_found"] == "Virtual Machines"
             assert result["original_search"] == "vm"
             assert result["total_skus"] > 0
 
     @pytest.mark.asyncio
-    async def test_get_customer_discount(self, pricing_server):
-        """Test customer discount retrieval."""
-        result = await pricing_server.get_customer_discount()
-
-        assert result["discount_percentage"] == 10.0
-        assert result["customer_id"] == "default"
-        assert result["discount_type"] == "standard"
-
-    @pytest.mark.asyncio
-    async def test_get_customer_discount_custom_id(self, pricing_server):
-        """Test customer discount with custom ID."""
-        result = await pricing_server.get_customer_discount(customer_id="customer123")
-
-        assert result["customer_id"] == "customer123"
-        assert result["discount_percentage"] == 10.0
-
-    @pytest.mark.asyncio
-    async def test_apply_discount_to_items(self, pricing_server):
-        """Test discount application to price items."""
-        items = [
-            {"retailPrice": 100.0, "skuName": "Test1"},
-            {"retailPrice": 200.0, "skuName": "Test2"},
-        ]
-
-        discounted = pricing_server._apply_discount_to_items(items, 20.0)
-
-        assert discounted[0]["retailPrice"] == 80.0
-        assert discounted[0]["originalPrice"] == 100.0
-        assert discounted[1]["retailPrice"] == 160.0
-        assert discounted[1]["originalPrice"] == 200.0
-
-    @pytest.mark.asyncio
-    async def test_validate_and_suggest_skus(self, pricing_server):
+    async def test_validate_and_suggest_skus(self, pricing_service):
         """Test SKU validation and suggestions."""
         mock_response = {
             "items": [
@@ -331,8 +358,8 @@ class TestAzurePricingServer:
             "count": 2,
         }
 
-        with patch.object(pricing_server, "search_azure_prices", return_value=mock_response):
-            result = await pricing_server._validate_and_suggest_skus(
+        with patch.object(pricing_service, "search_prices", return_value=mock_response):
+            result = await pricing_service._validate_and_suggest_skus(
                 service_name="Virtual Machines", sku_name="D4s", currency_code="USD"
             )
 
@@ -345,9 +372,9 @@ class TestToolHandlers:
     """Test suite for tool handler functions."""
 
     @pytest.mark.asyncio
-    async def test_handle_price_search(self, pricing_server, mock_pricing_response):
+    async def test_handle_price_search(self, tool_handlers, mock_pricing_response):
         """Test price search handler."""
-        with patch.object(pricing_server, "search_azure_prices") as mock_search:
+        with patch.object(tool_handlers._pricing_service, "search_prices") as mock_search:
             mock_search.return_value = {
                 "items": [mock_pricing_response["Items"][0]],
                 "count": 1,
@@ -356,10 +383,10 @@ class TestToolHandlers:
                 "filters_applied": [],
             }
 
-            with patch.object(pricing_server, "get_customer_discount") as mock_discount:
+            with patch.object(tool_handlers._pricing_service, "get_customer_discount") as mock_discount:
                 mock_discount.return_value = {"discount_percentage": 10.0}
 
-                result = await _handle_price_search(pricing_server, {"service_name": "Virtual Machines"})
+                result = await tool_handlers.handle_price_search({"service_name": "Virtual Machines"})
 
                 assert isinstance(result, list)
                 assert len(result) == 1
@@ -367,9 +394,9 @@ class TestToolHandlers:
                 assert "Virtual Machines" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_handle_price_compare(self, pricing_server):
+    async def test_handle_price_compare(self, tool_handlers):
         """Test price comparison handler."""
-        with patch.object(pricing_server, "compare_prices") as mock_compare:
+        with patch.object(tool_handlers._pricing_service, "compare_prices") as mock_compare:
             mock_compare.return_value = {
                 "comparisons": [
                     {"region": "eastus", "retail_price": 0.096},
@@ -379,8 +406,7 @@ class TestToolHandlers:
                 "comparison_type": "regions",
             }
 
-            result = await _handle_price_compare(
-                pricing_server,
+            result = await tool_handlers.handle_price_compare(
                 {"service_name": "Virtual Machines", "regions": ["eastus", "westus"]},
             )
 
@@ -390,9 +416,9 @@ class TestToolHandlers:
             assert "westus" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_handle_cost_estimate(self, pricing_server):
+    async def test_handle_cost_estimate(self, tool_handlers):
         """Test cost estimation handler."""
-        with patch.object(pricing_server, "estimate_costs") as mock_estimate:
+        with patch.object(tool_handlers._pricing_service, "estimate_costs") as mock_estimate:
             mock_estimate.return_value = {
                 "service_name": "Virtual Machines",
                 "sku_name": "D4s v3",
@@ -410,8 +436,7 @@ class TestToolHandlers:
                 "savings_plans": [],
             }
 
-            result = await _handle_cost_estimate(
-                pricing_server,
+            result = await tool_handlers.handle_cost_estimate(
                 {
                     "service_name": "Virtual Machines",
                     "sku_name": "D4s v3",
@@ -425,9 +450,9 @@ class TestToolHandlers:
             assert "70.08" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_handle_discover_skus(self, pricing_server):
+    async def test_handle_discover_skus(self, tool_handlers):
         """Test SKU discovery handler."""
-        with patch.object(pricing_server, "discover_skus") as mock_discover:
+        with patch.object(tool_handlers._sku_service, "discover_skus") as mock_discover:
             mock_discover.return_value = {
                 "service_name": "Virtual Machines",
                 "skus": [
@@ -439,7 +464,7 @@ class TestToolHandlers:
                 "region_filter": None,
             }
 
-            result = await _handle_discover_skus(pricing_server, {"service_name": "Virtual Machines"})
+            result = await tool_handlers.handle_discover_skus({"service_name": "Virtual Machines"})
 
             assert isinstance(result, list)
             assert len(result) == 1
@@ -447,9 +472,9 @@ class TestToolHandlers:
             assert "D8s v3" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_handle_sku_discovery(self, pricing_server):
+    async def test_handle_sku_discovery(self, tool_handlers):
         """Test intelligent SKU discovery handler."""
-        with patch.object(pricing_server, "discover_service_skus") as mock_discover:
+        with patch.object(tool_handlers._sku_service, "discover_service_skus") as mock_discover:
             mock_discover.return_value = {
                 "service_found": "Virtual Machines",
                 "original_search": "vm",
@@ -467,7 +492,7 @@ class TestToolHandlers:
                 "match_type": "exact_mapping",
             }
 
-            result = await _handle_sku_discovery(pricing_server, {"service_hint": "vm"})
+            result = await tool_handlers.handle_sku_discovery({"service_hint": "vm"})
 
             assert isinstance(result, list)
             assert len(result) == 1
@@ -475,9 +500,9 @@ class TestToolHandlers:
             assert "D4s v3" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_handle_customer_discount(self, pricing_server):
+    async def test_handle_customer_discount(self, tool_handlers):
         """Test customer discount handler."""
-        with patch.object(pricing_server, "get_customer_discount") as mock_discount:
+        with patch.object(tool_handlers._pricing_service, "get_customer_discount") as mock_discount:
             mock_discount.return_value = {
                 "customer_id": "test123",
                 "discount_percentage": 15.0,
@@ -487,7 +512,7 @@ class TestToolHandlers:
                 "note": "Contact sales for details",
             }
 
-            result = await _handle_customer_discount(pricing_server, {"customer_id": "test123"})
+            result = await tool_handlers.handle_customer_discount({"customer_id": "test123"})
 
             assert isinstance(result, list)
             assert len(result) == 1
@@ -499,23 +524,23 @@ class TestServiceNameMappings:
     """Test service name fuzzy matching."""
 
     @pytest.mark.asyncio
-    async def test_service_name_mapping_app_service(self, pricing_server):
+    async def test_service_name_mapping_app_service(self, sku_service):
         """Test app service name mapping."""
-        with patch.object(pricing_server, "search_azure_prices") as mock_search:
+        with patch.object(sku_service._pricing_service, "search_prices") as mock_search:
             mock_search.return_value = {"items": [{"serviceName": "Azure App Service"}], "count": 1}
 
-            await pricing_server.search_azure_prices_with_fuzzy_matching(service_name="app service")
+            await sku_service.search_with_fuzzy_matching(service_name="app service")
 
             # Should use the mapping to search for correct service
             assert mock_search.called
 
     @pytest.mark.asyncio
-    async def test_service_name_mapping_vm(self, pricing_server):
+    async def test_service_name_mapping_vm(self, sku_service):
         """Test VM name mapping."""
-        with patch.object(pricing_server, "search_azure_prices") as mock_search:
+        with patch.object(sku_service._pricing_service, "search_prices") as mock_search:
             mock_search.return_value = {"items": [{"serviceName": "Virtual Machines"}], "count": 1}
 
-            await pricing_server.search_azure_prices_with_fuzzy_matching(service_name="vm")
+            await sku_service.search_with_fuzzy_matching(service_name="vm")
 
             assert mock_search.called
 
@@ -524,20 +549,20 @@ class TestErrorHandling:
     """Test error handling scenarios."""
 
     @pytest.mark.asyncio
-    async def test_handle_price_search_error(self, pricing_server):
+    async def test_handle_price_search_error(self, pricing_service):
         """Test error handling in price search."""
-        with patch.object(pricing_server, "search_azure_prices", side_effect=ValueError("API Error")):
+        with patch.object(pricing_service._client, "fetch_prices", side_effect=ValueError("API Error")):
             # This would normally be caught by the handler wrapper
             with pytest.raises(ValueError):
-                await pricing_server.search_azure_prices(service_name="Test")
+                await pricing_service.search_prices(service_name="Test")
 
     @pytest.mark.asyncio
-    async def test_estimate_costs_no_results(self, pricing_server):
+    async def test_estimate_costs_no_results(self, pricing_service):
         """Test cost estimation with no pricing data."""
-        with patch.object(pricing_server, "search_azure_prices") as mock_search:
+        with patch.object(pricing_service, "search_prices") as mock_search:
             mock_search.return_value = {"items": [], "count": 0}
 
-            result = await pricing_server.estimate_costs(
+            result = await pricing_service.estimate_costs(
                 service_name="NonExistent",
                 sku_name="Invalid",
                 region="nowhere",

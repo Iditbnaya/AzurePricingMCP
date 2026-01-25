@@ -58,7 +58,7 @@ Issues = "https://github.com/msftnadavbh/AzurePricingMCP/issues"
 Documentation = "https://github.com/msftnadavbh/AzurePricingMCP#readme"
 
 [project.scripts]
-azure-pricing-mcp = "azure_pricing_mcp.server:main"
+azure-pricing-mcp = "azure_pricing_mcp.server:run"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

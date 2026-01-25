@@ -10,13 +10,25 @@ AzurePricingMCP/
 │   └── azure_pricing_mcp/          # Main package
 │       ├── __init__.py             # Package initialization
 │       ├── __main__.py             # Module entry point
-│       ├── server.py               # Main server implementation
-│       └── handlers.py             # Tool call handlers
+│       ├── server.py               # Main MCP server implementation
+│       ├── handlers.py             # Tool call handlers
+│       ├── client.py               # Azure Pricing API client
+│       ├── config.py               # Configuration constants
+│       ├── formatters.py           # Response formatting utilities
+│       ├── models.py               # Data models and types
+│       ├── tools.py                # Tool definitions
+│       └── services/               # Business logic services
+│           ├── __init__.py
+│           ├── pricing.py          # Pricing service
+│           ├── retirement.py       # VM retirement tracking
+│           └── sku.py              # SKU discovery service
 │
 ├── tests/                          # Test files
-│   ├── test_mcp.py
+│   ├── test_azure_pricing.py
+│   ├── test_http_transport.py
+│   ├── test_integration.py
 │   ├── test_mcp_server.py
-│   └── simulate_mcp_call.py
+│   └── test_ri_pricing.py
 │
 ├── scripts/                        # Utility scripts
 │   ├── install.py                 # Installation script
@@ -32,18 +44,12 @@ AzurePricingMCP/
 │   ├── PROJECT_STRUCTURE.md
 │   └── config_examples.json
 │
-├── .vscode/                       # VS Code configuration
-│   └── mcp.json.example           # MCP config template
-│
 ├── Dockerfile                     # Docker image definition
-├── docker-compose.yml             # Docker Compose configuration
-├── .dockerignore                  # Docker build exclusions
 ├── pyproject.toml                 # Modern Python packaging config
-├── setup.py                       # Setup script (backward compatible)
 ├── requirements.txt               # Dependencies
 ├── README.md                      # Main documentation
 ├── INSTALL.md                     # Installation guide
-├── DOCKER.md                      # Docker guide
+├── QUICK_START.md                 # Quick start guide
 ├── SETUP_CHECKLIST.md             # Setup verification
 ├── MANIFEST.in                    # Package data inclusion
 └── .gitignore                     # Git ignore patterns
@@ -68,8 +74,17 @@ AzurePricingMCP/
 - **Documentation**: `docs/` and root-level markdown files
 
 ### 4. **Package Organization**
-- `server.py` - Core server logic and API client
-- `handlers.py` - MCP tool call handlers (separated for clarity)
+- `server.py` - Core MCP server setup and routing
+- `handlers.py` - MCP tool call handlers
+- `client.py` - Azure Pricing API client with HTTP handling
+- `config.py` - Configuration constants and settings
+- `formatters.py` - Response formatting utilities
+- `models.py` - Data models and type definitions
+- `tools.py` - MCP tool definitions
+- `services/` - Business logic layer
+  - `pricing.py` - Price search, comparison, and estimation
+  - `retirement.py` - VM SKU retirement tracking
+  - `sku.py` - SKU discovery and fuzzy matching
 - `__init__.py` - Package exports and version
 - `__main__.py` - Module execution entry point
 
