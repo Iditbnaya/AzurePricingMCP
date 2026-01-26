@@ -6,196 +6,201 @@ Run with: pytest tests/test_integration.py -v
 
 import pytest
 
-from azure_pricing_mcp.server import AzurePricingServer
+from azure_pricing_mcp.client import AzurePricingClient
+from azure_pricing_mcp.services import PricingService, SKUService
+from azure_pricing_mcp.services.retirement import RetirementService
+
+
+@pytest.fixture
+async def services():
+    """Create all services for integration testing."""
+    async with AzurePricingClient() as client:
+        retirement_service = RetirementService(client)
+        pricing_service = PricingService(client, retirement_service)
+        sku_service = SKUService(pricing_service)
+        yield {
+            "pricing": pricing_service,
+            "sku": sku_service,
+            "retirement": retirement_service,
+        }
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_vm_price_search():
+async def test_real_vm_price_search(services):
     """Test real VM price search against Azure API."""
-    async with AzurePricingServer() as server:
-        result = await server.search_azure_prices(
-            service_name="Virtual Machines",
-            region="eastus",
-            sku_name="D4s v3",
-            limit=5,
-        )
+    result = await services["pricing"].search_prices(
+        service_name="Virtual Machines",
+        region="eastus",
+        sku_name="D4s v3",
+        limit=5,
+    )
 
-        assert result["count"] > 0
-        assert result["currency"] == "USD"
-        assert len(result["items"]) > 0
+    assert result["count"] > 0
+    assert result["currency"] == "USD"
+    assert len(result["items"]) > 0
 
-        # Verify structure of returned items
-        item = result["items"][0]
-        assert "skuName" in item
-        assert "retailPrice" in item
-        assert "armRegionName" in item
+    # Verify structure of returned items
+    item = result["items"][0]
+    assert "skuName" in item
+    assert "retailPrice" in item
+    assert "armRegionName" in item
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_storage_price_search():
+async def test_real_storage_price_search(services):
     """Test real storage price search."""
-    async with AzurePricingServer() as server:
-        result = await server.search_azure_prices(
-            service_name="Storage",
-            region="eastus",
-            limit=10,
-        )
+    result = await services["pricing"].search_prices(
+        service_name="Storage",
+        region="eastus",
+        limit=10,
+    )
 
-        assert result["count"] > 0
-        assert len(result["items"]) > 0
+    assert result["count"] > 0
+    assert len(result["items"]) > 0
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_price_comparison():
+async def test_real_price_comparison(services):
     """Test real price comparison across regions."""
-    async with AzurePricingServer() as server:
-        result = await server.compare_prices(
-            service_name="Virtual Machines",
-            sku_name="D4s v3",
-            regions=["eastus", "westus", "westeurope"],
-        )
+    result = await services["pricing"].compare_prices(
+        service_name="Virtual Machines",
+        sku_name="D4s v3",
+        regions=["eastus", "westus", "westeurope"],
+    )
 
-        assert len(result["comparisons"]) > 0
-        assert result["comparison_type"] == "regions"
+    assert len(result["comparisons"]) > 0
+    assert result["comparison_type"] == "regions"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_cost_estimate():
+async def test_real_cost_estimate(services):
     """Test real cost estimation."""
-    async with AzurePricingServer() as server:
-        result = await server.estimate_costs(
-            service_name="Virtual Machines",
-            sku_name="D4s v3",
-            region="eastus",
-            hours_per_month=730,
-        )
+    result = await services["pricing"].estimate_costs(
+        service_name="Virtual Machines",
+        sku_name="D4s v3",
+        region="eastus",
+        hours_per_month=730,
+    )
 
-        assert "on_demand_pricing" in result
-        assert result["on_demand_pricing"]["hourly_rate"] > 0
-        assert result["on_demand_pricing"]["monthly_cost"] > 0
+    assert "on_demand_pricing" in result
+    assert result["on_demand_pricing"]["hourly_rate"] > 0
+    assert result["on_demand_pricing"]["monthly_cost"] > 0
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_sku_discovery():
+async def test_real_sku_discovery(services):
     """Test real SKU discovery."""
-    async with AzurePricingServer() as server:
-        result = await server.discover_skus(
-            service_name="Virtual Machines",
-            region="eastus",
-            limit=20,
-        )
+    result = await services["sku"].discover_skus(
+        service_name="Virtual Machines",
+        region="eastus",
+        limit=20,
+    )
 
-        assert result["total_skus"] > 0
-        assert len(result["skus"]) > 0
+    assert result["total_skus"] > 0
+    assert len(result["skus"]) > 0
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_fuzzy_service_discovery():
+async def test_real_fuzzy_service_discovery(services):
     """Test real fuzzy service name matching."""
-    async with AzurePricingServer() as server:
-        result = await server.discover_service_skus(
-            service_hint="app service",
-            limit=10,
-        )
+    result = await services["sku"].discover_service_skus(
+        service_hint="app service",
+        limit=10,
+    )
 
-        # Should find Azure App Service
-        assert result["service_found"] is not None
-        assert "App Service" in result["service_found"] or len(result.get("suggestions", [])) > 0
+    # Should find Azure App Service
+    assert result["service_found"] is not None
+    assert "App Service" in result["service_found"] or len(result.get("suggestions", [])) > 0
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_discount_application():
+async def test_real_discount_application(services):
     """Test discount application on real data."""
-    async with AzurePricingServer() as server:
-        result = await server.search_azure_prices(
-            service_name="Virtual Machines",
-            sku_name="D4s v3",
-            region="eastus",
-            discount_percentage=10.0,
-            limit=5,
-        )
+    result = await services["pricing"].search_prices(
+        service_name="Virtual Machines",
+        sku_name="D4s v3",
+        region="eastus",
+        discount_percentage=10.0,
+        limit=5,
+    )
 
-        assert "discount_applied" in result
-        assert result["discount_applied"]["percentage"] == 10.0
+    assert "discount_applied" in result
+    assert result["discount_applied"]["percentage"] == 10.0
 
-        # Verify discount was applied to items
-        if result["items"]:
-            item = result["items"][0]
-            assert "originalPrice" in item
-            assert item["retailPrice"] < item["originalPrice"]
+    # Verify discount was applied to items
+    if result["items"]:
+        item = result["items"][0]
+        assert "originalPrice" in item
+        assert item["retailPrice"] < item["originalPrice"]
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_customer_discount():
+async def test_real_customer_discount(services):
     """Test customer discount retrieval."""
-    async with AzurePricingServer() as server:
-        result = await server.get_customer_discount()
+    result = await services["pricing"].get_customer_discount()
 
-        assert result["discount_percentage"] > 0
-        assert result["customer_id"] is not None
+    assert result["discount_percentage"] > 0
+    assert result["customer_id"] is not None
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_invalid_sku_validation():
+async def test_real_invalid_sku_validation(services):
     """Test SKU validation with invalid SKU."""
-    async with AzurePricingServer() as server:
-        result = await server.search_azure_prices(
-            service_name="Virtual Machines",
-            sku_name="InvalidSKUName123",
-            validate_sku=True,
-            limit=5,
-        )
+    result = await services["pricing"].search_prices(
+        service_name="Virtual Machines",
+        sku_name="InvalidSKUName123",
+        validate_sku=True,
+        limit=5,
+    )
 
-        # Should provide suggestions or validation info
-        assert "sku_validation" in result or result["count"] == 0
+    # Should provide suggestions or validation info
+    assert "sku_validation" in result or result["count"] == 0
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_real_multiple_currencies():
+async def test_real_multiple_currencies(services):
     """Test pricing in different currencies."""
-    async with AzurePricingServer() as server:
-        currencies = ["USD", "EUR", "GBP"]
+    currencies = ["USD", "EUR", "GBP"]
 
-        for currency in currencies:
-            result = await server.search_azure_prices(
-                service_name="Virtual Machines",
-                sku_name="D4s v3",
-                region="eastus",
-                currency_code=currency,
-                limit=1,
-            )
-
-            assert result["currency"] == currency
-            if result["items"]:
-                assert result["items"][0]["currencyCode"] == currency
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_real_savings_plans():
-    """Test retrieval of savings plan pricing."""
-    async with AzurePricingServer() as server:
-        result = await server.estimate_costs(
+    for currency in currencies:
+        result = await services["pricing"].search_prices(
             service_name="Virtual Machines",
             sku_name="D4s v3",
             region="eastus",
-            hours_per_month=730,
+            currency_code=currency,
+            limit=1,
         )
 
-        # Some VMs have savings plans
-        if result.get("savings_plans"):
-            assert len(result["savings_plans"]) > 0
-            plan = result["savings_plans"][0]
-            assert "term" in plan
-            assert "hourly_rate" in plan
-            assert "savings_percent" in plan
+        assert result["currency"] == currency
+        if result["items"]:
+            assert result["items"][0]["currencyCode"] == currency
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_real_savings_plans(services):
+    """Test retrieval of savings plan pricing."""
+    result = await services["pricing"].estimate_costs(
+        service_name="Virtual Machines",
+        sku_name="D4s v3",
+        region="eastus",
+        hours_per_month=730,
+    )
+
+    # Some VMs have savings plans
+    if result.get("savings_plans"):
+        assert len(result["savings_plans"]) > 0
+        plan = result["savings_plans"][0]
+        assert "term" in plan
+        assert "hourly_rate" in plan
+        assert "savings_percent" in plan

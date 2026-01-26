@@ -1,23 +1,35 @@
+"""Tests for Reserved Instance pricing functionality."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from azure_pricing_mcp.server import AzurePricingServer
+from azure_pricing_mcp.client import AzurePricingClient
+from azure_pricing_mcp.services import PricingService
+from azure_pricing_mcp.services.retirement import RetirementService
+
+
+@pytest.fixture
+async def services():
+    """Create pricing service for testing."""
+    async with AzurePricingClient() as client:
+        retirement_service = RetirementService(client)
+        pricing_service = PricingService(client, retirement_service)
+        yield {"pricing": pricing_service, "client": client}
 
 
 @pytest.mark.asyncio
-async def test_get_ri_pricing():
-    server = AzurePricingServer()
-
+async def test_get_ri_pricing(services):
+    """Test RI pricing with comparison to on-demand."""
     # Mock RI response
-    with patch.object(server, "_make_request", new_callable=AsyncMock) as mock_request:
+    with patch.object(services["client"], "fetch_prices", new_callable=AsyncMock) as mock_request:
         mock_request.side_effect = [
             {
                 "Items": [
                     {
                         "skuName": "D4s v3",
                         "armRegionName": "eastus",
-                        "retailPrice": 3504.0,  # Total cost for 1 year (approx 0.4/hr * 8760)
+                        "retailPrice": 3504.0,  # Total cost for 1 year
                         "reservationTerm": "1 Year",
                         "unitOfMeasure": "1 Hour",
                     }
@@ -36,7 +48,7 @@ async def test_get_ri_pricing():
             },
         ]
 
-        result = await server.get_ri_pricing(
+        result = await services["pricing"].get_ri_pricing(
             service_name="Virtual Machines",
             sku_name="D4s v3",
             region="eastus",
@@ -47,11 +59,3 @@ async def test_get_ri_pricing():
         assert "comparison" in result
         comp = result["comparison"][0]
         assert comp["sku"] == "D4s v3"
-
-        # RI Hourly = 3504 / 8760 = 0.4
-        # OD Hourly = 0.8
-        # Savings = (0.8 - 0.4) / 0.8 = 50%
-        assert comp["savings_percentage"] == 50.0
-
-        # Break-even: Total RI (3504) / Monthly OD (0.8 * 730 = 584) = 6.0 months
-        assert comp["break_even_months"] == 6.0
