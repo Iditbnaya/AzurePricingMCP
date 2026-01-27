@@ -325,10 +325,12 @@ class TestHandlerDiscountIntegration:
             "filters_applied": [],
         }
 
-        await tool_handlers.handle_price_search({
-            "service_name": "Virtual Machines",
-            "show_with_discount": True,
-        })
+        await tool_handlers.handle_price_search(
+            {
+                "service_name": "Virtual Machines",
+                "show_with_discount": True,
+            }
+        )
 
         # Verify the service was called with the default discount
         call_kwargs = tool_handlers._pricing_service.search_prices.call_args.kwargs
@@ -357,9 +359,11 @@ class TestHandlerDiscountIntegration:
             "filters_applied": [],
         }
 
-        result = await tool_handlers.handle_price_search({
-            "service_name": "Virtual Machines",
-        })
+        result = await tool_handlers.handle_price_search(
+            {
+                "service_name": "Virtual Machines",
+            }
+        )
 
         # Verify the service was called with 0% discount
         call_kwargs = tool_handlers._pricing_service.search_prices.call_args.kwargs
@@ -393,10 +397,12 @@ class TestHandlerDiscountIntegration:
         }
         tool_handlers._pricing_service.search_prices.return_value = mock_result
 
-        result = await tool_handlers.handle_price_search({
-            "service_name": "Virtual Machines",
-            "show_with_discount": True,
-        })
+        result = await tool_handlers.handle_price_search(
+            {
+                "service_name": "Virtual Machines",
+                "show_with_discount": True,
+            }
+        )
 
         # The formatted response should contain the default discount tip
         assert len(result) == 1
@@ -412,11 +418,13 @@ class TestHandlerDiscountIntegration:
             "currency": "USD",
         }
 
-        await tool_handlers.handle_price_compare({
-            "service_name": "Virtual Machines",
-            "regions": ["eastus", "westus"],
-            "show_with_discount": True,
-        })
+        await tool_handlers.handle_price_compare(
+            {
+                "service_name": "Virtual Machines",
+                "regions": ["eastus", "westus"],
+                "show_with_discount": True,
+            }
+        )
 
         call_kwargs = tool_handlers._pricing_service.compare_prices.call_args.kwargs
         assert call_kwargs["discount_percentage"] == DEFAULT_CUSTOMER_DISCOUNT
@@ -444,12 +452,14 @@ class TestHandlerDiscountIntegration:
             "savings_plans": [],
         }
 
-        await tool_handlers.handle_cost_estimate({
-            "service_name": "Virtual Machines",
-            "sku_name": "Standard_D2s_v3",
-            "region": "eastus",
-            "show_with_discount": True,
-        })
+        await tool_handlers.handle_cost_estimate(
+            {
+                "service_name": "Virtual Machines",
+                "sku_name": "Standard_D2s_v3",
+                "region": "eastus",
+                "show_with_discount": True,
+            }
+        )
 
         call_kwargs = tool_handlers._pricing_service.estimate_costs.call_args.kwargs
         assert call_kwargs["discount_percentage"] == DEFAULT_CUSTOMER_DISCOUNT
@@ -462,11 +472,13 @@ class TestHandlerDiscountIntegration:
             "currency": "USD",
         }
 
-        await tool_handlers.handle_region_recommend({
-            "service_name": "Virtual Machines",
-            "sku_name": "Standard_D2s_v3",
-            "show_with_discount": True,
-        })
+        await tool_handlers.handle_region_recommend(
+            {
+                "service_name": "Virtual Machines",
+                "sku_name": "Standard_D2s_v3",
+                "show_with_discount": True,
+            }
+        )
 
         call_kwargs = tool_handlers._pricing_service.recommend_regions.call_args.kwargs
         assert call_kwargs["discount_percentage"] == DEFAULT_CUSTOMER_DISCOUNT
