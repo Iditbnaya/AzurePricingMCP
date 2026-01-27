@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test the MCP server by simulating stdin/stdout communication."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
