@@ -44,7 +44,12 @@ def get_tool_definitions() -> list[Tool]:
                     },
                     "discount_percentage": {
                         "type": "number",
-                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount)",
+                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount). If not specified and show_with_discount is false, no discount is applied. If show_with_discount is true, defaults to 10%.",
+                    },
+                    "show_with_discount": {
+                        "type": "boolean",
+                        "description": "Set to true to apply a discount; uses default 10% unless discount_percentage is explicitly specified.",
+                        "default": False,
                     },
                     "validate_sku": {
                         "type": "boolean",
@@ -80,7 +85,12 @@ def get_tool_definitions() -> list[Tool]:
                     },
                     "discount_percentage": {
                         "type": "number",
-                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount)",
+                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount). If not specified and show_with_discount is false, no discount is applied. If show_with_discount is true, defaults to 10%.",
+                    },
+                    "show_with_discount": {
+                        "type": "boolean",
+                        "description": "Set to true to apply a discount; uses default 10% unless discount_percentage is explicitly specified.",
+                        "default": False,
                     },
                 },
                 "required": ["service_name"],
@@ -116,7 +126,12 @@ def get_tool_definitions() -> list[Tool]:
                     },
                     "discount_percentage": {
                         "type": "number",
-                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount)",
+                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount). If not specified and show_with_discount is false, no discount is applied. If show_with_discount is true, defaults to 10%.",
+                    },
+                    "show_with_discount": {
+                        "type": "boolean",
+                        "description": "Set to true to apply a discount; uses default 10% unless discount_percentage is explicitly specified.",
+                        "default": False,
                     },
                 },
                 "required": ["service_name", "sku_name", "region"],
@@ -204,7 +219,12 @@ def get_tool_definitions() -> list[Tool]:
                     },
                     "discount_percentage": {
                         "type": "number",
-                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount)",
+                        "description": "Discount percentage to apply to prices (e.g., 10 for 10% discount). If not specified and show_with_discount is false, no discount is applied. If show_with_discount is true, defaults to 10%.",
+                    },
+                    "show_with_discount": {
+                        "type": "boolean",
+                        "description": "Set to true to apply a discount; uses default 10% unless discount_percentage is explicitly specified.",
+                        "default": False,
                     },
                 },
                 "required": ["service_name", "sku_name"],
