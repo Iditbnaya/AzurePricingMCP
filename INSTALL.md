@@ -2,6 +2,20 @@
 
 This guide will help you install and configure the Azure Pricing MCP Server.
 
+## Upgrading from a Previous Version
+
+```bash
+cd AzurePricingMCP
+git pull origin main
+pip install -e .
+```
+
+Then restart the MCP server (VS Code: reload window, Claude Desktop: restart app).
+
+> **Note:** v3.1.0+ includes Spot VM tools that require Azure authentication. Run `az login` to use them.
+
+---
+
 ## Quick Install (Recommended)
 
 ### Option 1: Docker 🐳 (Easiest - No Python Setup Required)
