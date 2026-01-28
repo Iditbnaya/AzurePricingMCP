@@ -285,4 +285,63 @@ def get_tool_definitions() -> list[Tool]:
                 },
             },
         ),
+        # Spot VM Tools (require Azure authentication)
+        Tool(
+            name="spot_eviction_rates",
+            description="Get Spot VM eviction rates for specified SKUs and regions. Requires Azure authentication (az login or environment variables). Returns eviction rate categories: 0-5%, 5-10%, 10-15%, 15-20%, 20%+.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "skus": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of VM SKU names (e.g., ['Standard_D2s_v4', 'Standard_D4s_v4'])",
+                    },
+                    "locations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of Azure regions (e.g., ['eastus', 'westus2'])",
+                    },
+                },
+                "required": ["skus", "locations"],
+            },
+        ),
+        Tool(
+            name="spot_price_history",
+            description="Get Spot VM price history for a specific SKU and region. Requires Azure authentication (az login or environment variables). Returns up to 90 days of historical Spot pricing data.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "sku": {
+                        "type": "string",
+                        "description": "VM SKU name (e.g., 'Standard_D2s_v4')",
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "Azure region (e.g., 'eastus')",
+                    },
+                    "os_type": {
+                        "type": "string",
+                        "description": "Operating system type ('linux' or 'windows')",
+                        "enum": ["linux", "windows"],
+                        "default": "linux",
+                    },
+                },
+                "required": ["sku", "location"],
+            },
+        ),
+        Tool(
+            name="simulate_eviction",
+            description="Simulate eviction of a Spot VM for testing application resilience. Requires Azure authentication with 'Virtual Machine Contributor' role. The VM will receive a 30-second eviction notice via Scheduled Events.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "vm_resource_id": {
+                        "type": "string",
+                        "description": "Full Azure resource ID of the Spot VM (e.g., '/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Compute/virtualMachines/{vmName}')",
+                    },
+                },
+                "required": ["vm_resource_id"],
+            },
+        ),
     ]

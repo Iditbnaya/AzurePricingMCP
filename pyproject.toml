@@ -50,6 +50,9 @@ dev = [
     "bandit>=1.7.0",
     "types-requests>=2.31.0",
 ]
+spot = [
+    "azure-identity>=1.15.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/msftnadavbh/AzurePricingMCP"
