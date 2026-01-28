@@ -110,3 +110,39 @@ VM_SERIES_REPLACEMENTS: dict[str, str] = {
     "G": "Ev5 or Edsv5 series",
     "Gs": "Edsv5 or Edsv6 series",
 }
+
+# =============================================================================
+# Spot VM Tools Configuration (requires Azure authentication)
+# =============================================================================
+
+# Azure Resource Graph API configuration
+AZURE_RESOURCE_GRAPH_URL = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources"
+AZURE_RESOURCE_GRAPH_API_VERSION = "2022-10-01"
+
+# Azure Compute API configuration
+AZURE_COMPUTE_API_VERSION = "2024-07-01"
+
+# Spot data cache configuration
+SPOT_CACHE_TTL = timedelta(hours=1)
+
+# Azure authentication scopes
+AZURE_MANAGEMENT_SCOPE = "https://management.azure.com/.default"
+
+# Least-privilege permissions documentation
+SPOT_PERMISSIONS: dict[str, dict[str, str]] = {
+    "eviction_rates": {
+        "permission": "Microsoft.ResourceGraph/resources/read",
+        "built_in_role": "Reader",
+        "description": "Query Azure Resource Graph for Spot VM eviction rates",
+    },
+    "price_history": {
+        "permission": "Microsoft.ResourceGraph/resources/read",
+        "built_in_role": "Reader",
+        "description": "Query Azure Resource Graph for Spot price history",
+    },
+    "simulate_eviction": {
+        "permission": "Microsoft.Compute/virtualMachines/simulateEviction/action",
+        "built_in_role": "Virtual Machine Contributor",
+        "description": "Trigger eviction simulation on a Spot VM",
+    },
+}

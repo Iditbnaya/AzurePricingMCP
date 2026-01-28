@@ -15,6 +15,7 @@ Real-world examples of using the Azure Pricing MCP Server with VS Code Copilot o
 - [SKU Discovery](#sku-discovery)
 - [Retirement Warnings](#retirement-warnings)
 - [Storage Pricing](#storage-pricing)
+- [Spot VM Tools](#spot-vm-tools)
 - [Sample API Responses](#sample-api-responses)
 - [Reference Tables](#reference-tables)
 
@@ -395,6 +396,157 @@ With 10% customer discount: $0.00324
 **Query:**
 ```
 Compare Hot, Cool, and Archive storage pricing in East US
+```
+
+---
+
+## Spot VM Tools
+
+> **Note:** Spot VM tools require Azure authentication. Install with `pip install azure-pricing-mcp[spot]` and authenticate via Azure CLI (`az login`) or other supported methods.
+
+### Check Spot Eviction Rates
+
+**Query:**
+```
+What are the Spot eviction rates for D4s_v3 and D8s_v3 in East US?
+```
+
+**What happens:**
+- Tool: `spot_eviction_rates`
+- Queries Azure Resource Graph for real-time eviction data
+
+**Sample Response:**
+```
+Spot VM Eviction Rates (East US):
+
+| SKU          | Eviction Rate | Risk Level |
+|--------------|---------------|------------|
+| D4s_v3       | 0-5%          | Low        |
+| D8s_v3       | 5-10%         | Moderate   |
+
+Note: Rates are based on historical data and may vary.
+Lower eviction rates indicate more stable Spot availability.
+```
+
+---
+
+### Compare Eviction Rates Across Regions
+
+**Query:**
+```
+Compare Spot eviction rates for Standard_L32s_v2 in eastus, westus2, and westeurope
+```
+
+**What happens:**
+- Tool: `spot_eviction_rates`
+- Queries multiple regions simultaneously
+
+**Sample Response:**
+```
+Spot Eviction Rates for L32s_v2:
+
+| Region      | Eviction Rate | Recommendation |
+|-------------|---------------|----------------|
+| eastus      | 0-5%          | ✅ Best choice |
+| westeurope  | 5-10%         | ⚠️ Moderate risk |
+| westus2     | 10-15%        | ⚠️ Higher risk |
+
+Recommendation: Deploy in East US for lowest eviction risk.
+```
+
+---
+
+### Get Spot Price History
+
+**Query:**
+```
+Show me the Spot price history for D4s_v3 in East US over the last 30 days
+```
+
+**What happens:**
+- Tool: `spot_price_history`
+- Returns historical pricing data
+
+**Sample Response:**
+```
+Spot Price History - D4s_v3 (East US, Linux):
+
+Recent prices (last 30 days):
+- Current: $0.0384/hour
+- 7-day avg: $0.0391/hour
+- 30-day avg: $0.0402/hour
+- 30-day high: $0.0458/hour
+- 30-day low: $0.0362/hour
+
+Price trend: Stable (±5% variation)
+```
+
+---
+
+### Simulate Spot VM Eviction
+
+**Query:**
+```
+Simulate eviction for my Spot VM at /subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/my-rg/providers/Microsoft.Compute/virtualMachines/my-spot-vm
+```
+
+**What happens:**
+- Tool: `simulate_eviction`
+- Triggers a test eviction signal on the specified VM
+- VM receives eviction notice via Azure Metadata Service
+
+**Sample Response:**
+```
+✅ Eviction simulation triggered successfully
+
+VM: my-spot-vm
+Resource Group: my-rg
+Status: Simulation initiated
+
+The VM will receive an eviction signal via the Azure Instance 
+Metadata Service (IMDS). Use this to test your eviction handling logic.
+
+Note: This is a simulation - the VM will NOT be actually evicted.
+```
+
+**Prerequisites:**
+- VM must be a running Spot VM
+- You need `Microsoft.Compute/virtualMachines/simulateEviction/action` permission
+- Typically requires VM Contributor role or higher
+
+---
+
+### Spot VM Decision Workflow
+
+**Query:**
+```
+I'm planning to deploy a batch processing workload. Should I use Spot VMs 
+for D16s_v3 in East US? What's the eviction risk and cost savings?
+```
+
+**What happens:**
+- Tool: `spot_eviction_rates` for eviction data
+- Tool: `azure_price_search` for pricing comparison
+
+**Sample Response:**
+```
+Spot VM Analysis for D16s_v3 (East US):
+
+📊 Eviction Risk:
+- Current rate: 0-5% (Low risk)
+- Suitable for: Batch processing, CI/CD, dev/test
+
+💰 Cost Comparison:
+| Type          | Price/Hour | Monthly (730h) | Savings |
+|---------------|------------|----------------|---------|
+| On-Demand     | $0.768     | $560.64        | -       |
+| Spot          | $0.154     | $112.42        | 80%     |
+| 1-Year RI     | $0.486     | $354.78        | 37%     |
+
+✅ Recommendation: Spot VMs are a good fit for batch processing.
+- Low eviction risk (0-5%)
+- 80% cost savings vs on-demand
+- Ensure your workload can handle interruptions
 ```
 
 ---

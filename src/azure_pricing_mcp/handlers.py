@@ -15,9 +15,12 @@ from .formatters import (
     format_price_search_response,
     format_region_recommend_response,
     format_ri_pricing_response,
+    format_simulate_eviction_response,
     format_sku_discovery_response,
+    format_spot_eviction_rates_response,
+    format_spot_price_history_response,
 )
-from .services import PricingService, SKUService
+from .services import PricingService, SKUService, SpotService
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +28,15 @@ logger = logging.getLogger(__name__)
 class ToolHandlers:
     """Handlers for MCP tool calls."""
 
-    def __init__(self, pricing_service: PricingService, sku_service: SKUService) -> None:
+    def __init__(
+        self,
+        pricing_service: PricingService,
+        sku_service: SKUService,
+        spot_service: SpotService | None = None,
+    ) -> None:
         self._pricing_service = pricing_service
         self._sku_service = sku_service
+        self._spot_service = spot_service
 
     def _resolve_discount(self, arguments: dict[str, Any]) -> tuple[float, bool, bool]:
         """Resolve discount settings from arguments.
@@ -152,6 +161,42 @@ class ToolHandlers:
         response_text = format_ri_pricing_response(result)
         return [TextContent(type="text", text=response_text)]
 
+    def _get_spot_service(self) -> SpotService:
+        """Get or create the SpotService (lazy initialization)."""
+        if self._spot_service is None:
+            self._spot_service = SpotService()
+        return self._spot_service
+
+    async def handle_spot_eviction_rates(self, arguments: dict[str, Any]) -> list[TextContent]:
+        """Handle spot_eviction_rates tool calls."""
+        spot_service = self._get_spot_service()
+        result = await spot_service.get_eviction_rates(
+            skus=arguments["skus"],
+            locations=arguments["locations"],
+        )
+        response_text = format_spot_eviction_rates_response(result)
+        return [TextContent(type="text", text=response_text)]
+
+    async def handle_spot_price_history(self, arguments: dict[str, Any]) -> list[TextContent]:
+        """Handle spot_price_history tool calls."""
+        spot_service = self._get_spot_service()
+        result = await spot_service.get_price_history(
+            sku=arguments["sku"],
+            location=arguments["location"],
+            os_type=arguments.get("os_type", "linux"),
+        )
+        response_text = format_spot_price_history_response(result)
+        return [TextContent(type="text", text=response_text)]
+
+    async def handle_simulate_eviction(self, arguments: dict[str, Any]) -> list[TextContent]:
+        """Handle simulate_eviction tool calls."""
+        spot_service = self._get_spot_service()
+        result = await spot_service.simulate_eviction(
+            vm_resource_id=arguments["vm_resource_id"],
+        )
+        response_text = format_simulate_eviction_response(result)
+        return [TextContent(type="text", text=response_text)]
+
 
 def register_tool_handlers(server: Any, tool_handlers: ToolHandlers) -> None:
     """Register all tool call handlers with the server.
@@ -188,6 +233,16 @@ def register_tool_handlers(server: Any, tool_handlers: ToolHandlers) -> None:
 
             elif name == "get_customer_discount":
                 return await tool_handlers.handle_customer_discount(arguments)
+
+            # Spot VM tools (require Azure authentication)
+            elif name == "spot_eviction_rates":
+                return await tool_handlers.handle_spot_eviction_rates(arguments)
+
+            elif name == "spot_price_history":
+                return await tool_handlers.handle_spot_price_history(arguments)
+
+            elif name == "simulate_eviction":
+                return await tool_handlers.handle_simulate_eviction(arguments)
 
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]

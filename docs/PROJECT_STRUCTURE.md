@@ -13,6 +13,7 @@ AzurePricingMCP/
 │       ├── server.py               # Main MCP server implementation
 │       ├── handlers.py             # Tool call handlers
 │       ├── client.py               # Azure Pricing API client
+│       ├── auth.py                 # Azure AD authentication (for Spot tools)
 │       ├── config.py               # Configuration constants
 │       ├── formatters.py           # Response formatting utilities
 │       ├── models.py               # Data models and types
@@ -21,7 +22,8 @@ AzurePricingMCP/
 │           ├── __init__.py
 │           ├── pricing.py          # Pricing service
 │           ├── retirement.py       # VM retirement tracking
-│           └── sku.py              # SKU discovery service
+│           ├── sku.py              # SKU discovery service
+│           └── spot.py             # Spot VM eviction & pricing (requires auth)
 │
 ├── tests/                          # Test files
 │   ├── test_azure_pricing.py
@@ -77,6 +79,7 @@ AzurePricingMCP/
 - `server.py` - Core MCP server setup and routing
 - `handlers.py` - MCP tool call handlers
 - `client.py` - Azure Pricing API client with HTTP handling
+- `auth.py` - Azure AD authentication for Spot VM tools
 - `config.py` - Configuration constants and settings
 - `formatters.py` - Response formatting utilities
 - `models.py` - Data models and type definitions
@@ -85,6 +88,7 @@ AzurePricingMCP/
   - `pricing.py` - Price search, comparison, and estimation
   - `retirement.py` - VM SKU retirement tracking
   - `sku.py` - SKU discovery and fuzzy matching
+  - `spot.py` - Spot VM eviction rates, price history, simulation
 - `__init__.py` - Package exports and version
 - `__main__.py` - Module execution entry point
 

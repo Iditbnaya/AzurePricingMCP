@@ -457,3 +457,153 @@ def format_ri_pricing_response(result: dict[str, Any]) -> str:
         response_lines.append("No Reserved Instance pricing found for the given criteria.")
 
     return "\n".join(response_lines)
+
+
+# =============================================================================
+# Spot VM Tool Formatters
+# =============================================================================
+
+
+def format_spot_eviction_rates_response(result: dict[str, Any]) -> str:
+    """Format the Spot eviction rates response for display."""
+    # Handle authentication errors
+    if "error" in result:
+        return _format_spot_error(result)
+
+    eviction_rates = result.get("eviction_rates", [])
+    if not eviction_rates:
+        return (
+            f"No eviction rate data found for the specified SKUs and locations.\n\n"
+            f"SKUs queried: {', '.join(result.get('skus_queried', []))}\n"
+            f"Locations queried: {', '.join(result.get('locations_queried', []))}"
+        )
+
+    response_lines = [
+        "### 📊 Spot VM Eviction Rates\n",
+        f"Found {result['count']} results\n",
+    ]
+
+    # Group by location
+    by_location: dict[str, list[dict]] = {}
+    for rate in eviction_rates:
+        loc = rate.get("location", "unknown")
+        if loc not in by_location:
+            by_location[loc] = []
+        by_location[loc].append(rate)
+
+    # Format table
+    response_lines.append("| Location | SKU | Eviction Rate |")
+    response_lines.append("|----------|-----|---------------|")
+
+    for location in sorted(by_location.keys()):
+        for rate in sorted(by_location[location], key=lambda x: x.get("skuName", "")):
+            sku = rate.get("skuName", "N/A")
+            eviction = rate.get("evictionRate", "N/A")
+            emoji = _get_eviction_rate_emoji(eviction)
+            response_lines.append(f"| {location} | {sku} | {emoji} {eviction} |")
+
+    response_lines.append("")
+    response_lines.append(result.get("note", ""))
+
+    return "\n".join(response_lines)
+
+
+def format_spot_price_history_response(result: dict[str, Any]) -> str:
+    """Format the Spot price history response for display."""
+    # Handle authentication errors
+    if "error" in result:
+        return _format_spot_error(result)
+
+    if "message" in result and not result.get("price_history"):
+        return str(result["message"])
+
+    response_lines = [
+        f"### 💰 Spot Price History: {result.get('sku', 'N/A')}\n",
+        f"**Location:** {result.get('location', 'N/A')}",
+        f"**OS Type:** {result.get('os_type', 'N/A')}",
+        f"**Latest Price:** ${result.get('latest_price_usd', 'N/A')}/hour" if result.get("latest_price_usd") else "",
+        f"**History Points:** {result.get('history_points', 0)}\n",
+    ]
+
+    price_history = result.get("price_history", [])
+    if price_history:
+        response_lines.append("| Date | Price (USD) |")
+        response_lines.append("|------|-------------|")
+
+        # Show up to 20 most recent prices
+        for price in price_history[:20]:
+            date = price.get("timestamp", "N/A")
+            if isinstance(date, str) and len(date) > 10:
+                date = date[:10]  # Truncate to date only
+            price_usd = price.get("priceUSD", "N/A")
+            if isinstance(price_usd, (int, float)):
+                price_usd = f"${price_usd:.4f}"
+            response_lines.append(f"| {date} | {price_usd} |")
+
+        if len(price_history) > 20:
+            response_lines.append(f"\n... and {len(price_history) - 20} more data points.")
+
+    response_lines.append("")
+    response_lines.append(result.get("note", ""))
+
+    return "\n".join(response_lines)
+
+
+def format_simulate_eviction_response(result: dict[str, Any]) -> str:
+    """Format the simulate eviction response for display."""
+    # Handle authentication errors
+    if "error" in result:
+        return _format_spot_error(result)
+
+    if result.get("status") == "success":
+        return f"""### ✅ Eviction Simulation Triggered
+
+**Status:** Success
+**VM Resource ID:** `{result.get('vm_resource_id', 'N/A')}`
+
+{result.get('note', '')}
+
+⚠️ **What happens next:**
+1. The VM will receive a Scheduled Event notification
+2. After ~30 seconds, the VM will be evicted
+3. Use this to test your application's handling of Spot evictions
+"""
+
+    return f"Unexpected response: {result}"
+
+
+def _format_spot_error(result: dict[str, Any]) -> str:
+    """Format a Spot tool error response."""
+    error_type = result.get("error", "unknown_error")
+    message = result.get("message", "An unknown error occurred.")
+
+    response = f"### ❌ {error_type.replace('_', ' ').title()}\n\n{message}\n"
+
+    if "help" in result:
+        response += f"\n{result['help']}"
+
+    if "details" in result:
+        response += f"\n**Details:** {result['details']}"
+
+    if "expected_format" in result:
+        response += f"\n**Expected format:** `{result['expected_format']}`"
+
+    return response
+
+
+def _get_eviction_rate_emoji(rate: str) -> str:
+    """Get an emoji indicator for eviction rate."""
+    if not rate:
+        return "❓"
+    rate_lower = rate.lower()
+    if "0-5" in rate_lower:
+        return "🟢"  # Low risk
+    elif "5-10" in rate_lower:
+        return "🟡"  # Medium-low risk
+    elif "10-15" in rate_lower:
+        return "🟠"  # Medium risk
+    elif "15-20" in rate_lower:
+        return "🔴"  # High risk
+    elif "20" in rate_lower:
+        return "⛔"  # Very high risk
+    return "❓"

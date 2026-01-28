@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "azure-pricing-mcp"
-version = "3.0.0"
+version = "3.1.0"
 description = "A Model Context Protocol server for querying Azure retail pricing information"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -49,6 +49,9 @@ dev = [
     "pre-commit>=3.5.0",
     "bandit>=1.7.0",
     "types-requests>=2.31.0",
+]
+spot = [
+    "azure-identity>=1.15.0",
 ]
 
 [project.urls]
@@ -128,6 +131,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "aiohttp.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "azure.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

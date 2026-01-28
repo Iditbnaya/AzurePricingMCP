@@ -5,6 +5,38 @@ All notable changes to the Azure Pricing MCP Server will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-01-28
+
+### Added
+
+- **Spot VM Tools** (requires Azure authentication)
+  - `spot_eviction_rates` - Query Spot VM eviction rates for SKUs across regions
+  - `spot_price_history` - Get up to 90 days of Spot pricing history
+  - `simulate_eviction` - Trigger eviction simulation on Spot VMs for resilience testing
+
+- **Azure Authentication Module** (`auth.py`)
+  - `AzureCredentialManager` for Azure AD authentication
+  - Non-interactive credential support (environment variables, managed identity, Azure CLI)
+  - Graceful error handling with authentication help messages
+  - Least-privilege permission guidance for each tool
+
+- **New Dependencies**
+  - `azure-identity>=1.15.0` as optional `[spot]` extra
+  - Install with: `pip install azure-pricing-mcp[spot]`
+
+- **Spot Service** (`services/spot.py`)
+  - Azure Resource Graph integration for eviction rates and price history
+  - Azure Compute API integration for eviction simulation
+  - Lazy initialization - auth only checked when Spot tools are called
+
+### Configuration
+
+- `AZURE_RESOURCE_GRAPH_URL` - Resource Graph API endpoint
+- `AZURE_RESOURCE_GRAPH_API_VERSION` - API version for Resource Graph
+- `AZURE_COMPUTE_API_VERSION` - API version for Compute operations
+- `SPOT_CACHE_TTL` - Cache TTL for Spot data (1 hour default)
+- `SPOT_PERMISSIONS` - Least-privilege permission documentation
+
 ## [3.0.0] - 2026-01-26
 
 ### ⚠️ Breaking Changes

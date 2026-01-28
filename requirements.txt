@@ -20,3 +20,7 @@ sse-starlette>=1.8.0
 # Testing dependencies
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
+
+# Optional: Spot VM tools (requires Azure authentication)
+# Install with: pip install azure-pricing-mcp[spot]
+# azure-identity>=1.15.0
