@@ -120,6 +120,12 @@ def _register_tool_handlers(server: Server, pricing_server: AzurePricingServer) 
             return await handlers.handle_ri_pricing(arguments)
         elif name == "get_customer_discount":
             return await handlers.handle_customer_discount(arguments)
+        elif name == "spot_eviction_rates":
+            return await handlers.handle_spot_eviction_rates(arguments)
+        elif name == "spot_price_history":
+            return await handlers.handle_spot_price_history(arguments)
+        elif name == "simulate_eviction":
+            return await handlers.handle_simulate_eviction(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
