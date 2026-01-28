@@ -18,23 +18,23 @@ DISCOUNT_TIP_NO_DISCOUNT = (
 
 def _get_discount_tip(result: dict[str, Any]) -> str:
     """Get appropriate discount tip based on metadata.
-    
+
     Args:
         result: The result dictionary that may contain _discount_metadata
-        
+
     Returns:
         A tip string, or empty string if no tip is appropriate
     """
     metadata = result.get("_discount_metadata", {})
-    
+
     # If user explicitly specified a discount, no tip needed
     if metadata.get("discount_specified", False):
         return ""
-    
+
     # If default discount was used, show the default-used tip
     if metadata.get("used_default_discount", False):
         return DISCOUNT_TIP_DEFAULT_USED
-    
+
     # No discount was applied and user didn't specify one - suggest the feature
     return DISCOUNT_TIP_NO_DISCOUNT
 
