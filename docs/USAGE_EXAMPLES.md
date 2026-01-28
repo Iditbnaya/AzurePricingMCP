@@ -402,7 +402,7 @@ Compare Hot, Cool, and Archive storage pricing in East US
 
 ## Spot VM Tools
 
-> **Note:** Spot VM tools require Azure authentication. Install with `pip install azure-pricing-mcp[spot]` and authenticate via Azure CLI (`az login`) or other supported methods.
+> **Note:** Spot VM tools require Azure authentication. Authenticate via Azure CLI (`az login`) or other supported methods (environment variables, managed identity).
 
 ### Check Spot Eviction Rates
 

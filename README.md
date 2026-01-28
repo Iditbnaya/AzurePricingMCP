@@ -302,12 +302,6 @@ The retirement data is fetched dynamically from Microsoft's official documentati
 
 Spot VM tools (`spot_eviction_rates`, `spot_price_history`, `simulate_eviction`) require Azure authentication because they query the Azure Resource Graph API, which is not publicly accessible.
 
-### Install Optional Dependencies
-
-```bash
-pip install azure-pricing-mcp[spot]
-```
-
 ### Authentication Options
 
 **Option 1: Azure CLI (Recommended for development)**
