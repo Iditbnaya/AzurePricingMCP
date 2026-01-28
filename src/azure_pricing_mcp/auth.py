@@ -106,7 +106,7 @@ class AzureCredentialManager:
         try:
             token = self._credential.get_token(AZURE_MANAGEMENT_SCOPE)
             self._cached_token = token
-            return token.token
+            return str(token.token)
         except Exception as e:
             logger.warning(f"Failed to acquire token: {e}")
             return None

@@ -102,7 +102,8 @@ class SpotService:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=headers, json=body) as response:
                     if response.status == 200:
-                        return await response.json()
+                        result: dict[str, Any] = await response.json()
+                        return result
                     elif response.status == 401:
                         return {
                             "error": "unauthorized",

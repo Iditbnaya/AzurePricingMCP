@@ -515,7 +515,7 @@ def format_spot_price_history_response(result: dict[str, Any]) -> str:
         return _format_spot_error(result)
 
     if "message" in result and not result.get("price_history"):
-        return result["message"]
+        return str(result["message"])
 
     response_lines = [
         f"### 💰 Spot Price History: {result.get('sku', 'N/A')}\n",
