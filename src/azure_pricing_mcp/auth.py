@@ -49,7 +49,7 @@ class AzureCredentialManager:
     def __init__(self) -> None:
         """Initialize the credential manager."""
         self._credential = None
-        self._cached_token: "AccessToken | None" = None
+        self._cached_token: AccessToken | None = None
         self._initialization_error: str | None = None
 
         if not _check_azure_identity_available():

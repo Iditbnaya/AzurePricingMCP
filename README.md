@@ -52,6 +52,7 @@ Then configure your AI assistant (VS Code, Claude Desktop, etc.) to use the MCP 
 | 📊 **Real-time Data** | Live data from Azure Retail Prices API |
 | 🏷️ **Customer Discounts** | Apply discount percentages to all pricing queries |
 | ⚠️ **Retirement Warnings** | Automatic alerts for retiring/retired VM SKUs with migration guidance |
+| 🎰 **Spot VM Tools** | Eviction rates, price history, and eviction simulation (requires Azure auth) |
 | 🐳 **Docker Support** | Run in containers for easy deployment and isolation |
 
 ---
@@ -68,6 +69,16 @@ Then configure your AI assistant (VS Code, Claude Desktop, etc.) to use the MCP 
 | `azure_discover_skus` | List available SKUs for a specific service |
 | `azure_sku_discovery` | Intelligent SKU discovery with fuzzy name matching |
 | `get_customer_discount` | Get customer discount information |
+
+### 🎰 Spot VM Tools (Requires Azure Authentication)
+
+| Tool | Description |
+|------|-------------|
+| `spot_eviction_rates` | Get Spot VM eviction rates for SKUs across regions |
+| `spot_price_history` | Get up to 90 days of historical Spot pricing |
+| `simulate_eviction` | Trigger eviction simulation on a Spot VM |
+
+> **Note:** Spot VM tools require Azure authentication. See [Spot VM Authentication](#spot-vm-authentication) below.
 
 ---
 
@@ -245,6 +256,8 @@ Once configured, ask your AI assistant:
 | **SKU Discovery** | "What App Service plans are available?" |
 | **Savings Plans** | "Show savings plan options for virtual machines" |
 | **Storage** | "What are the blob storage pricing tiers?" |
+| **Spot Eviction** | "What are the eviction rates for D4s_v4 in eastus?" |
+| **Spot History** | "Show me Spot price history for D2s_v4 in westus2" |
 
 ### Sample Response
 
@@ -282,6 +295,58 @@ The server automatically checks VM SKUs against Microsoft's official retirement 
 ```
 
 The retirement data is fetched dynamically from Microsoft's official documentation and cached for 24 hours.
+
+---
+
+## 🎰 Spot VM Authentication
+
+Spot VM tools (`spot_eviction_rates`, `spot_price_history`, `simulate_eviction`) require Azure authentication because they query the Azure Resource Graph API, which is not publicly accessible.
+
+### Install Optional Dependencies
+
+```bash
+pip install azure-pricing-mcp[spot]
+```
+
+### Authentication Options
+
+**Option 1: Azure CLI (Recommended for development)**
+```bash
+az login
+```
+
+**Option 2: Environment Variables (Recommended for production/CI)**
+```bash
+export AZURE_TENANT_ID="your-tenant-id"
+export AZURE_CLIENT_ID="your-client-id"
+export AZURE_CLIENT_SECRET="your-client-secret"
+```
+
+**Option 3: Managed Identity (When running in Azure)**
+No configuration needed - uses the VM/App Service identity automatically.
+
+### Required Permissions
+
+| Tool | Permission | Built-in Role |
+|------|------------|---------------|
+| `spot_eviction_rates` | `Microsoft.ResourceGraph/resources/read` | Reader |
+| `spot_price_history` | `Microsoft.ResourceGraph/resources/read` | Reader |
+| `simulate_eviction` | `Microsoft.Compute/virtualMachines/simulateEviction/action` | VM Contributor |
+
+For least-privilege access, create a custom role with only the permissions you need.
+
+### What if I'm not authenticated?
+
+The Spot VM tools will return a friendly message with authentication instructions:
+
+```
+🔐 Azure Authentication Required
+
+To use Spot VM tools, you need to authenticate with Azure.
+Please run `az login` or set AZURE_* environment variables.
+```
+
+All other pricing tools continue to work without authentication.
 
 ---
 

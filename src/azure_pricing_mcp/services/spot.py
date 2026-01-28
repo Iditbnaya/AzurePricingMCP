@@ -20,7 +20,6 @@ from ..config import (
     AZURE_COMPUTE_API_VERSION,
     AZURE_RESOURCE_GRAPH_API_VERSION,
     AZURE_RESOURCE_GRAPH_URL,
-    SPOT_CACHE_TTL,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,7 +156,7 @@ SpotResources
 | where type =~ 'microsoft.compute/skuspotevictionrate/location'
 | where tolower(sku.name) in~ ({sku_filter})
 | where tolower(location) in~ ({location_filter})
-| project 
+| project
     skuName = tostring(sku.name),
     location = location,
     evictionRate = tostring(properties.evictionRate)
@@ -206,7 +205,7 @@ SpotResources
 | where tolower(sku.name) =~ '{sku.lower()}'
 | where tolower(properties.osType) =~ '{os_type.lower()}'
 | where tolower(location) =~ '{location.lower()}'
-| project 
+| project
     skuName = tostring(sku.name),
     osType = tostring(properties.osType),
     location = location,

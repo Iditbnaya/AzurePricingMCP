@@ -15,10 +15,10 @@ from .formatters import (
     format_price_search_response,
     format_region_recommend_response,
     format_ri_pricing_response,
+    format_simulate_eviction_response,
     format_sku_discovery_response,
     format_spot_eviction_rates_response,
     format_spot_price_history_response,
-    format_simulate_eviction_response,
 )
 from .services import PricingService, SKUService, SpotService
 
