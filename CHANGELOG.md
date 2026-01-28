@@ -21,8 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Least-privilege permission guidance for each tool
 
 - **New Dependencies**
-  - `azure-identity>=1.15.0` as optional `[spot]` extra
-  - Install with: `pip install azure-pricing-mcp[spot]`
+  - `azure-identity>=1.15.0` for Azure AD authentication (Spot VM tools)
 
 - **Spot Service** (`services/spot.py`)
   - Azure Resource Graph integration for eviction rates and price history
