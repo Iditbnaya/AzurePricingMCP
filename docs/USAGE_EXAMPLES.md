@@ -1,636 +1,404 @@
-# Usage Examples 📖
+# Usage Examples
 
-Real-world examples of using the Azure Pricing MCP Server with VS Code Copilot or Claude Desktop.
+Real-world examples of using the Azure Pricing MCP Server with AI assistants.
 
----
+## Quick Start Guide
+
+This guide demonstrates how to use natural language queries with the Azure Pricing MCP Server. Each example shows:
+- The query you can ask
+- Which tool is invoked
+- Sample response format
+
+Copy these queries directly or adapt them to your needs.
 
 ## Table of Contents
 
+**Core Pricing**
 - [Basic Price Queries](#basic-price-queries)
-- [Reserved Instance Pricing](#reserved-instance-pricing)
-- [Multi-Node & Cluster Pricing](#multi-node--cluster-pricing)
-- [Price Comparisons](#price-comparisons)
-- [Region Recommendations](#region-recommendations)
 - [Cost Estimations](#cost-estimations)
-- [SKU Discovery](#sku-discovery)
-- [Retirement Warnings](#retirement-warnings)
-- [Storage Pricing](#storage-pricing)
-- [Spot VM Tools](#spot-vm-tools)
-- [Sample API Responses](#sample-api-responses)
-- [Reference Tables](#reference-tables)
+- [Price Comparisons](#price-comparisons)
 
----
+**Advanced Features**
+- [Reserved Instance Pricing](#reserved-instance-pricing)
+- [Region Recommendations](#region-recommendations)
+- [Multi-Node & Cluster Pricing](#multi-node--cluster-pricing)
+- [Spot VM Tools](#spot-vm-tools)
+
+**Discovery & Reference**
+- [SKU Discovery](#sku-discovery)
+- [Storage Pricing](#storage-pricing)
+- [Retirement Warnings](#retirement-warnings)
+- [Reference Tables](#reference-tables)
 
 ## Basic Price Queries
 
-### Virtual Machine Pricing
+Query prices for Azure services using natural language. The `azure_price_search` tool handles all basic pricing queries.
 
-**Query:**
-```
-What's the price of a Standard_D4s_v3 VM in East US?
-```
+### Virtual Machines
 
-**What happens:**
-- Tool: `azure_price_search`
-- Filters: `service_name=Virtual Machines`, `sku_name=D4s v3`, `region=eastus`
+**Query:** "What's the price of a Standard_D4s_v3 VM in East US?"
 
-**Sample Response:**
+**Response:**
 ```
 Standard_D4s_v3 in East US:
-- Linux: $0.192/hour
-- Windows: $0.384/hour
+- Linux: $0.192/hour ($140.16/month)
+- Windows: $0.384/hour ($280.32/month)
 - 1-Year Savings Plan: $0.134/hour (30% savings)
 - 3-Year Savings Plan: $0.106/hour (45% savings)
 ```
 
+### Databases
+
+**Query:** "What are the prices for Azure SQL Database in West Europe?"
+
+The tool filters by `service_name=Azure SQL Database` and `region=westeurope`.
+
+### GPU VMs
+
+**Query:** "Show me NVIDIA GPU VM pricing in East US 2"
+
+Searches for VM SKUs with `NC` series (NVIDIA GPUs) in the specified region.
+
 ---
 
-### Database Pricing
+## Cost Estimations
 
-**Query:**
+Estimate monthly and yearly costs based on usage patterns. Use the `azure_cost_estimate` tool.
+
+### Development Environment (Part-Time Usage)
+
+**Query:** "Estimate monthly cost for D4s_v5 running 10 hours per day, 22 days per month"
+
+**Response:**
 ```
-What are the prices for Azure SQL Database in West Europe?
+D4s_v5 Cost Estimate (East US)
+Usage: 220 hours/month
+
+On-Demand:     $42.24/month  ($506.88/year)
+1-Year Plan:   $29.48/month  ($353.76/year) - Save 30%
+3-Year Plan:   $23.32/month  ($279.84/year) - Save 45%
 ```
 
-**What happens:**
-- Tool: `azure_price_search`
-- Filters: `service_name=Azure SQL Database`, `region=westeurope`
+### Production 24/7 Workload
+
+**Query:** "Estimate yearly cost for E8s_v5 running 24/7 in West US 2"
+
+Calculates for 730 hours/month (24/7 operation).
 
 ---
 
-### GPU VM Pricing
+## Price Comparisons
 
-**Query:**
+Compare costs across regions or between SKUs using `azure_price_compare`.
+
+### Compare Across Regions
+
+**Query:** "Compare D4s_v5 VM prices between eastus, westeurope, and southeastasia"
+
+**Response:**
 ```
-Show me NVIDIA GPU VM pricing in East US 2
+D4s_v5 Price Comparison:
+
+| Region        | Hourly   | Monthly (730h) | vs Cheapest |
+|---------------|----------|----------------|-------------|
+| eastus        | $0.192   | $140.16        | Cheapest    |
+| westeurope    | $0.211   | $154.03        | +10%        |
+| southeastasia | $0.221   | $161.33        | +15%        |
 ```
 
-**What happens:**
-- Tool: `azure_price_search`
-- Filters: `service_name=Virtual Machines`, `sku_name=NC`, `region=eastus2`
+### Compare Storage Tiers
+
+**Query:** "Compare storage options: Premium SSD vs Standard SSD vs Standard HDD"
+
+Compares pricing and performance characteristics of different storage types.
 
 ---
 
 ## Reserved Instance Pricing
 
-### Compare RI vs On-Demand
+Compare Reserved Instance (RI) pricing with on-demand rates. Use the `azure_ri_pricing` tool for break-even analysis.
 
-**Query:**
+**Query:** "Show me Reserved Instance pricing for D4s v3 in East US"
+
+**Response:**
 ```
-Show me Reserved Instance pricing for D4s v3 in East US
-```
+D4s v3 (East US) - Reserved Instance Analysis
 
-**What happens:**
-- Tool: `azure_ri_pricing`
-- Filters: `service_name=Virtual Machines`, `sku_name=D4s v3`, `region=eastus`
+1-Year RI:
+  Rate: $0.112/hr (vs $0.192/hr on-demand)
+  Savings: 41.5%
+  Break-even: 7.0 months
+  Annual savings: $700.80
 
-**Sample Response:**
-```
-### Reserved Instance Savings Analysis
-
-- **D4s v3** (East US) - 1 Year
-  - Savings: **41.5%**
-  - RI Rate: $0.112/hr vs OD Rate: $0.192/hr
-  - Break-even: **7.0 months**
-  - Est. Annual Savings: $700.80
-
-- **D4s v3** (East US) - 3 Years
-  - Savings: **62.0%**
-  - RI Rate: $0.073/hr vs OD Rate: $0.192/hr
-  - Break-even: **13.7 months**
-  - Est. Annual Savings: $1,042.44
+3-Year RI:
+  Rate: $0.073/hr (vs $0.192/hr on-demand)
+  Savings: 62.0%
+  Break-even: 13.7 months
+  Annual savings: $1,042.44
 ```
 
 ---
 
 ## Multi-Node & Cluster Pricing
 
-### AKS Node Pool Pricing
+Calculate costs for node pools and entire Kubernetes clusters.
 
-**Query:**
-```
-Price for 20 Standard_D32s_v6 nodes in East US 2 for AKS
-```
+### AKS Node Pool
 
-**Sample Response:**
-```
-Standard_D32s_v6 in East US 2:
+**Query:** "Price for 20 Standard_D32s_v6 nodes in East US 2 for AKS"
 
-| Option              | Hourly/Node | Monthly/Node | 20 Nodes/Month |
-|---------------------|-------------|--------------|----------------|
-| Linux On-Demand     | $1.613      | $1,177.49    | $23,549.80     |
-| 1-Year Savings Plan | $1.113      | $812.49      | $16,249.82     |
-| 3-Year Savings Plan | $0.742      | $541.65      | $10,832.93     |
-| Windows             | $3.085      | $2,252.05    | $45,041.00     |
-| Linux Spot          | $0.313      | $228.43      | $4,568.66      |
+**Response:**
+```
+Standard_D32s_v6 in East US 2 (20 nodes):
+
+| Option          | Per Node/Month | 20 Nodes/Month | Savings |
+|-----------------|----------------|----------------|---------|
+| Linux On-Demand | $1,177         | $23,550        | -       |
+| 1-Year Plan     | $812           | $16,250        | 31%     |
+| 3-Year Plan     | $542           | $10,833        | 54%     |
+| Linux Spot      | $228           | $4,569         | 81%     |
 ```
 
----
+### Kubernetes Cluster
 
-### Kubernetes Cluster Cost Estimate
+**Query:** "Estimate monthly cost for a Kubernetes cluster with 5 D8s_v5 nodes for system and 20 D16s_v5 nodes for workloads in East US"
 
-**Query:**
-```
-Estimate monthly cost for a Kubernetes cluster with:
-- 5 D8s_v5 nodes for system
-- 20 D16s_v5 nodes for workloads
-- All in East US
-```
-
----
-
-## Price Comparisons
-
-### Cross-Region Comparison
-
-**Query:**
-```
-Compare D4s_v5 VM prices between eastus, westeurope, and southeastasia
-```
-
-**What happens:**
-- Tool: `azure_price_compare`
-- Parameters: `service_name=Virtual Machines`, `sku_name=D4s v5`, `regions=[eastus, westeurope, southeastasia]`
-
-**Sample Response:**
-```
-D4s_v5 Price Comparison:
-
-| Region        | Hourly Price | Monthly (730h) |
-|---------------|--------------|----------------|
-| eastus        | $0.192       | $140.16        |
-| westeurope    | $0.211       | $154.03        |
-| southeastasia | $0.221       | $161.33        |
-
-💡 East US is 13% cheaper than Southeast Asia
-```
-
----
-
-### SKU Comparison
-
-**Query:**
-```
-Compare storage options: Premium SSD vs Standard SSD vs Standard HDD
-```
+Combines pricing for multiple node pools.
 
 ---
 
 ## Region Recommendations
 
-The region recommendation tool supports multiple SKU name formats for convenience:
-- **Display format**: `D4s v5`, `E4as v5`
-- **ARM format**: `Standard_D4s_v5`, `Standard_E4as_v5`
-- **Underscore format**: `D4s_v5`, `E4as_v5`
+Find the most cost-effective Azure regions using `azure_region_recommend`.
 
-All formats are automatically normalized and will return the same results.
+**Flexible Format:** Accepts SKU names in multiple formats:
+- Display: `D4s v5`, `E4as v5`
+- ARM: `Standard_D4s_v5`, `Standard_E4as_v5`
+- Underscore: `D4s_v5`, `E4as_v5`
 
-### Find Cheapest Regions for VMs
+### Find Cheapest Regions
 
-**Query:**
+**Query:** "What are the cheapest regions for D4s v5 VMs?"
+
+**Response:**
 ```
-What are the cheapest regions for D4s v5 VMs?
-```
+Region Recommendations for D4s v5 (USD)
 
-or equivalently:
-```
-What are the cheapest regions for Standard_D4s_v5 VMs?
-```
+Cheapest: IN Central (centralindia) - $0.0234/hr
+Most Expensive: BR South (brazilsouth) - $0.1170/hr
+Max Savings: 80.0%
 
-**What happens:**
-- Tool: `azure_region_recommend`
-- Parameters: `service_name=Virtual Machines`, `sku_name=D4s v5`, `top_n=10`
-
-**Sample Response:**
-```
-🌍 Region Recommendations for Virtual Machines - D4s v5
-
-Currency: USD
-Total regions found: 34
-Showing top: 10
-
-📊 Summary:
-   🥇 Cheapest: IN Central (centralindia) - $0.023400
-   🥉 Most Expensive: BR South (brazilsouth) - $0.117000
-   💰 Max Savings: 80.0% by choosing the cheapest region
-
-📋 Ranked Recommendations:
-
-| Rank | Region | Location | Price | Savings vs Max |
-|------|--------|----------|-------|----------------|
-| 🥇 1 | centralindia | IN Central | $0.0234/hr | 80.0% |
-| 🥈 2 | eastus2 | US East 2 | $0.0336/hr | 71.2% |
-| 🥉 3 | eastus | US East | $0.0336/hr | 71.2% |
-| 4 | westus3 | US West 3 | $0.0336/hr | 71.2% |
-| 5 | northcentralus | US North Central | $0.0364/hr | 68.9% |
+Top 5 Regions:
+| Rank | Region         | Location      | Price/hr | Savings |
+|------|----------------|---------------|----------|---------|
+| 1    | centralindia   | IN Central    | $0.0234  | 80.0%   |
+| 2    | eastus2        | US East 2     | $0.0336  | 71.2%   |
+| 3    | eastus         | US East       | $0.0336  | 71.2%   |
+| 4    | westus3        | US West 3     | $0.0336  | 71.2%   |
+| 5    | northcentralus | US North Cen  | $0.0364  | 68.9%   |
 ```
 
----
+### With Discount
 
-### AKS Cluster - Find Cheapest Region
+**Query:** "Show cheapest regions for E4s v5 VMs with my 15% enterprise discount"
 
-**Query:**
-```
-Find the cheapest regions for running D8s v6 nodes
-```
-
-or with ARM format:
-```
-Find the cheapest regions for Standard_D8s_v6
-```
-
-**What happens:**
-- Tool: `azure_region_recommend`
-- Parameters: `service_name=Virtual Machines`, `sku_name=D8s v6`, `top_n=5`
-
----
-
-### Region Recommendations with Discount
-
-**Query:**
-```
-Show cheapest regions for E4s v5 VMs with my 15% enterprise discount
-```
-
-**What happens:**
-- Tool: `azure_region_recommend`
-- Parameters: `service_name=Virtual Machines`, `sku_name=E4s v5`, `discount_percentage=15`
-
----
-
-## Cost Estimations
-
-### Development Environment
-
-**Query:**
-```
-Estimate monthly cost for D4s_v5 running 10 hours per day, 22 days per month
-```
-
-**What happens:**
-- Tool: `azure_cost_estimate`
-- Parameters: `service_name=Virtual Machines`, `sku_name=D4s v5`, `region=eastus`, `hours_per_month=220`
-
-**Sample Response:**
-```
-Cost Estimate for D4s_v5 (Dev Environment)
-
-Usage: 220 hours/month (10hr/day × 22 days)
-
-On-Demand:
-- Hourly: $0.192
-- Monthly: $42.24
-- Yearly: $506.88
-
-With 1-Year Savings Plan:
-- Monthly: $29.48
-- Yearly: $353.76
-- Savings: $153.12/year (30%)
-
-With 3-Year Savings Plan:
-- Monthly: $23.32
-- Yearly: $279.84
-- Savings: $227.04/year (45%)
-```
-
----
-
-### Production 24/7 Workload
-
-**Query:**
-```
-Estimate yearly cost for E8s_v5 running 24/7 in West US 2
-```
+Applies your discount percentage to all prices shown.
 
 ---
 
 ## SKU Discovery
 
-### Find Available VM Sizes
+Discover available Azure services and SKUs using fuzzy matching with `azure_sku_discovery`.
 
-**Query:**
-```
-What VM sizes are available for compute-intensive workloads?
-```
+### Find VM Sizes
 
-**What happens:**
-- Tool: `azure_sku_discovery`
-- Parameters: `service_hint=compute`
+**Query:** "What VM sizes are available for compute-intensive workloads?"
 
----
+Searches for compute-optimized VM series.
 
 ### App Service Plans
 
-**Query:**
+**Query:** "What App Service plans are available?"
+
+**Response:**
 ```
-What App Service plans are available?
-```
+Azure App Service Plans:
 
-**What happens:**
-- Tool: `azure_sku_discovery`
-- Parameters: `service_hint=app service`
-- Uses fuzzy matching: "app service" → "Azure App Service"
+Basic:
+  • B1: $0.018/hour
+  • B2: $0.036/hour
+  • B3: $0.072/hour
 
-**Sample Response:**
-```
-SKU Discovery for 'app service' (mapped to: Azure App Service)
+Standard:
+  • S1: $0.10/hour
+  • S2: $0.20/hour
+  • S3: $0.40/hour
 
-📦 Azure App Service Basic:
-   • B1: $0.018/hour
-   • B2: $0.036/hour
-   • B3: $0.072/hour
-
-📦 Azure App Service Standard:
-   • S1: $0.10/hour
-   • S2: $0.20/hour
-   • S3: $0.40/hour
-
-📦 Azure App Service Premium v3:
-   • P1v3: $0.125/hour
-   • P2v3: $0.25/hour
-   • P3v3: $0.50/hour
+Premium v3:
+  • P1v3: $0.125/hour
+  • P2v3: $0.25/hour
+  • P3v3: $0.50/hour
 ```
 
----
+### Common Service Aliases
 
-### Fuzzy Service Name Matching
+The tool recognizes common aliases:
 
-The `azure_sku_discovery` tool supports common aliases:
-
-| You Say | Maps To |
-|---------|---------|
+| You Say | Finds |
+|---------|-------|
 | "vm", "virtual machine" | Virtual Machines |
 | "app service", "web app" | Azure App Service |
 | "sql", "database" | Azure SQL Database |
 | "kubernetes", "aks", "k8s" | Azure Kubernetes Service |
 | "storage", "blob" | Storage |
-| "redis", "cache" | Azure Cache for Redis |
-| "cosmos", "cosmosdb" | Azure Cosmos DB |
 | "functions", "serverless" | Azure Functions |
 
 ---
 
 ## Storage Pricing
 
+Query storage costs for various Azure storage services.
+
 ### Block Blob Operations
 
-**Query:**
-```
-How much does 100,000 write operations on Block Blob LRS GPv1 in East US cost?
-```
+**Query:** "How much does 100,000 write operations on Block Blob LRS GPv1 in East US cost?"
 
-**Sample Response:**
+**Response:**
 ```
 Block Blob LRS (GPv1) - East US:
-- Write Operations: $0.00036 per 10K
-- 100,000 operations = 10 × 10K
-- Total: $0.0036
+Write Operations: $0.00036 per 10K
+100,000 operations = 10 × 10K = $0.0036
 
-With 10% customer discount: $0.00324
+With 10% discount: $0.00324
 ```
 
----
+### Storage Tiers
 
-### Storage Tiers Comparison
+**Query:** "Compare Hot, Cool, and Archive storage pricing in East US"
 
-**Query:**
-```
-Compare Hot, Cool, and Archive storage pricing in East US
-```
+Compares data storage and access costs across tiers.
 
 ---
 
 ## Spot VM Tools
 
-> **Note:** Spot VM tools require Azure authentication. Authenticate via Azure CLI (`az login`) or other supported methods (environment variables, managed identity).
+**Note:** Requires Azure authentication (`az login`, service principal, or managed identity).
 
-### Check Spot Eviction Rates
+### Check Eviction Rates
 
-**Query:**
-```
-What are the Spot eviction rates for D4s_v3 and D8s_v3 in East US?
-```
+**Query:** "What are the Spot eviction rates for D4s_v3 in East US?"
 
-**What happens:**
-- Tool: `spot_eviction_rates`
-- Queries Azure Resource Graph for real-time eviction data
+Uses `spot_eviction_rates` to query Azure Resource Graph for real-time eviction data.
 
-**Sample Response:**
+**Response:**
 ```
 Spot VM Eviction Rates (East US):
 
-| SKU          | Eviction Rate | Risk Level |
-|--------------|---------------|------------|
-| D4s_v3       | 0-5%          | Low        |
-| D8s_v3       | 5-10%         | Moderate   |
+| SKU    | Eviction Rate | Risk Level |
+|--------|---------------|------------|
+| D4s_v3 | 0-5%          | Low        |
+| D8s_v3 | 5-10%         | Moderate   |
+```
 
-Note: Rates are based on historical data and may vary.
-Lower eviction rates indicate more stable Spot availability.
+### Price History
+
+**Query:** "Show me the Spot price history for D4s_v3 in East US over the last 30 days"
+
+Uses `spot_price_history` for up to 90 days of historical pricing.
+
+**Response:**
+```
+Spot Price History - D4s_v3 (East US):
+
+Current: $0.0384/hr
+7-day avg: $0.0391/hr
+30-day avg: $0.0402/hr
+Range: $0.0362 - $0.0458
+Trend: Stable (±5%)
+```
+
+### Simulate Eviction
+
+**Query:** "Simulate eviction for my Spot VM my-spot-vm in my-rg"
+
+Uses `simulate_eviction` to trigger a test eviction signal (requires VM Contributor role).
+
+### Decision Analysis
+
+**Query:** "Should I use Spot VMs for D16s_v3 in East US for batch processing?"
+
+Combines eviction rates and pricing to provide recommendations:
+
+```
+D16s_v3 (East US) Analysis:
+
+Eviction Risk: 0-5% (Low)
+Best for: Batch processing, CI/CD, dev/test
+
+Cost Comparison:
+| Type      | Monthly (730h) | Savings |
+|-----------|----------------|---------|
+| On-Demand | $560.64        | -       |
+| Spot      | $112.42        | 80%     |
+| 1-Year RI | $354.78        | 37%     |
+
+Recommendation: Spot VMs recommended for batch processing
 ```
 
 ---
 
-### Compare Eviction Rates Across Regions
+## Retirement Warnings
 
-**Query:**
+The server automatically warns when querying retired or retiring VM SKUs.
+
+### Retiring SKU Example
+
+**Query:** "What's the price of L32s v2 in East US?"
+
+**Response:**
 ```
-Compare Spot eviction rates for Standard_L32s_v2 in eastus, westus2, and westeurope
-```
+⚠️ RETIREMENT WARNING: Lsv2-series
+   Status: Retirement Announced
+   Retirement Date: 11/15/28
+   Recommendation: Migrate to Lsv3, Lasv3, Lsv4, or Lasv4 series
 
-**What happens:**
-- Tool: `spot_eviction_rates`
-- Queries multiple regions simultaneously
-
-**Sample Response:**
-```
-Spot Eviction Rates for L32s_v2:
-
-| Region      | Eviction Rate | Recommendation |
-|-------------|---------------|----------------|
-| eastus      | 0-5%          | ✅ Best choice |
-| westeurope  | 5-10%         | ⚠️ Moderate risk |
-| westus2     | 10-15%        | ⚠️ Higher risk |
-
-Recommendation: Deploy in East US for lowest eviction risk.
+L32s v2 in East US:
+- Spot: $0.313/hour
+- On-Demand: $2.480/hour
 ```
 
----
+### Previous Generation Example
 
-### Get Spot Price History
+**Query:** "What's the price of E32 v3 in East US?"
 
-**Query:**
+**Response:**
 ```
-Show me the Spot price history for D4s_v3 in East US over the last 30 days
-```
+ℹ️ PREVIOUS GENERATION: Ev3-series
+   Recommendation: Consider upgrading to Ev5 or Ev6 series
 
-**What happens:**
-- Tool: `spot_price_history`
-- Returns historical pricing data
-
-**Sample Response:**
-```
-Spot Price History - D4s_v3 (East US, Linux):
-
-Recent prices (last 30 days):
-- Current: $0.0384/hour
-- 7-day avg: $0.0391/hour
-- 30-day avg: $0.0402/hour
-- 30-day high: $0.0458/hour
-- 30-day low: $0.0362/hour
-
-Price trend: Stable (±5% variation)
+E32 v3 in East US: $2.016/hour
 ```
 
----
+### Warning Types
 
-### Simulate Spot VM Eviction
-
-**Query:**
-```
-Simulate eviction for my Spot VM at /subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/my-rg/providers/Microsoft.Compute/virtualMachines/my-spot-vm
-```
-
-**What happens:**
-- Tool: `simulate_eviction`
-- Triggers a test eviction signal on the specified VM
-- VM receives eviction notice via Azure Metadata Service
-
-**Sample Response:**
-```
-✅ Eviction simulation triggered successfully
-
-VM: my-spot-vm
-Resource Group: my-rg
-Status: Simulation initiated
-
-The VM will receive an eviction signal via the Azure Instance 
-Metadata Service (IMDS). Use this to test your eviction handling logic.
-
-Note: This is a simulation - the VM will NOT be actually evicted.
-```
-
-**Prerequisites:**
-- VM must be a running Spot VM
-- You need `Microsoft.Compute/virtualMachines/simulateEviction/action` permission
-- Typically requires VM Contributor role or higher
-
----
-
-### Spot VM Decision Workflow
-
-**Query:**
-```
-I'm planning to deploy a batch processing workload. Should I use Spot VMs 
-for D16s_v3 in East US? What's the eviction risk and cost savings?
-```
-
-**What happens:**
-- Tool: `spot_eviction_rates` for eviction data
-- Tool: `azure_price_search` for pricing comparison
-
-**Sample Response:**
-```
-Spot VM Analysis for D16s_v3 (East US):
-
-📊 Eviction Risk:
-- Current rate: 0-5% (Low risk)
-- Suitable for: Batch processing, CI/CD, dev/test
-
-💰 Cost Comparison:
-| Type          | Price/Hour | Monthly (730h) | Savings |
-|---------------|------------|----------------|---------|
-| On-Demand     | $0.768     | $560.64        | -       |
-| Spot          | $0.154     | $112.42        | 80%     |
-| 1-Year RI     | $0.486     | $354.78        | 37%     |
-
-✅ Recommendation: Spot VMs are a good fit for batch processing.
-- Low eviction risk (0-5%)
-- 80% cost savings vs on-demand
-- Ensure your workload can handle interruptions
-```
-
----
-
-## Sample API Responses
-
-### Price Search Response
-
-```json
-{
-  "items": [
-    {
-      "service": "Virtual Machines",
-      "product": "Virtual Machines Dsv6 Series",
-      "sku": "D32s v6",
-      "region": "eastus2",
-      "location": "US East 2",
-      "discounted_price": 1.4517,
-      "original_price": 1.613,
-      "unit": "1 Hour",
-      "type": "Consumption",
-      "savings_plans": [
-        {"retailPrice": 0.742, "term": "3 Years"},
-        {"retailPrice": 1.113, "term": "1 Year"}
-      ],
-      "savings_amount": 0.1613,
-      "savings_percentage": 10.0
-    }
-  ],
-  "count": 1,
-  "currency": "USD",
-  "discount_applied": {
-    "percentage": 10.0,
-    "note": "Prices shown are after discount"
-  }
-}
-```
-
-### Cost Estimate Response
-
-```
-Cost Estimate for Virtual Machines - D4s v5
-Region: eastus
-Product: Virtual Machines Dsv5 Series
-Unit: 1 Hour
-Currency: USD
-
-💰 10.0% discount applied - All prices shown are after discount
-
-Usage Assumptions:
-- Hours per month: 730
-- Hours per day: 23.98
-
-On-Demand Pricing:
-- Hourly Rate: $0.1728
-- Daily Cost: $4.15
-- Monthly Cost: $126.14
-- Yearly Cost: $1,513.73
-
-Savings Plans Available:
-
-1 Year Term:
-- Hourly Rate: $0.1206
-- Monthly Cost: $88.04
-- Yearly Cost: $1,056.46
-- Savings: 30.21% ($457.27 annually)
-
-3 Years Term:
-- Hourly Rate: $0.0954
-- Monthly Cost: $69.64
-- Yearly Cost: $835.70
-- Savings: 44.80% ($678.03 annually)
-```
+| Status | Meaning |
+|--------|---------|
+| ⚠️ Retirement Announced | SKU will be retired - plan migration |
+| 🚫 Retired | No longer available for new deployments |
+| ℹ️ Previous Generation | Newer versions available |
 
 ---
 
 ## Reference Tables
 
+Quick reference for service names, regions, and best practices.
+
 ### Common Azure Service Names
 
-> ⚠️ Service names are **case-sensitive**!
+Service names are case-sensitive. Use exact names for best results.
 
-| Service | Exact Name |
-|---------|------------|
+| Service | API Name |
+|---------|----------|
 | Virtual Machines | `Virtual Machines` |
 | Storage | `Storage` |
 | SQL Database | `Azure SQL Database` |
@@ -638,13 +406,7 @@ Savings Plans Available:
 | Kubernetes | `Azure Kubernetes Service` |
 | App Service | `Azure App Service` |
 | Functions | `Azure Functions` |
-| Redis Cache | `Azure Cache for Redis` |
-| PostgreSQL | `Azure Database for PostgreSQL` |
-| MySQL | `Azure Database for MySQL` |
 | OpenAI | `Azure OpenAI` |
-| AI Services | `Azure AI services` |
-
----
 
 ### Common Azure Regions
 
@@ -652,9 +414,7 @@ Savings Plans Available:
 |-------------|----------|
 | `eastus` | US East |
 | `eastus2` | US East 2 |
-| `westus` | US West |
 | `westus2` | US West 2 |
-| `westus3` | US West 3 |
 | `centralus` | US Central |
 | `westeurope` | West Europe |
 | `northeurope` | North Europe |
@@ -662,114 +422,40 @@ Savings Plans Available:
 | `eastasia` | East Asia |
 | `southeastasia` | Southeast Asia |
 | `japaneast` | Japan East |
-| `australiaeast` | Australia East |
-| `canadacentral` | Canada Central |
-| `brazilsouth` | Brazil South |
 
----
+### Best Practices
 
-### Service Families
-
-| Family | Includes |
-|--------|----------|
-| `Compute` | VMs, AKS, Container Instances, App Service |
-| `Storage` | Blob, Files, Disks, Data Lake |
-| `Databases` | SQL, Cosmos DB, PostgreSQL, MySQL |
-| `Networking` | VNet, Load Balancer, Application Gateway, CDN |
-| `AI + Machine Learning` | OpenAI, Cognitive Services, ML |
-| `Analytics` | Synapse, Data Factory, HDInsight |
-
----
-
-## Tips for Best Results
-
-| Tip | Example |
-|-----|---------|
-| ✅ Be specific with SKU names | `D4s_v5` not just `D4` |
-| ✅ Use exact region codes | `eastus` not `East US` |
-| ✅ Check savings plans | Always compare 1yr and 3yr options |
-| ✅ Use fuzzy discovery | `azure_sku_discovery` for unknown services |
-| ✅ Specify currency if needed | Add `currency_code=EUR` |
-| ✅ Filter by price type | `Consumption`, `Reservation`, `DevTestConsumption` |
-
----
-
-## Retirement Warnings
-
-The server automatically warns you when querying VM SKUs that are retiring, retired, or previous-generation.
-
-### Querying a Retiring SKU
-
-**Query:**
-```
-What's the price of L32s v2 in East US?
-```
-
-**Sample Response:**
-```
-⚠️ RETIREMENT WARNING: Lsv2-series
-   Status: Retirement Announced
-   Retirement Date: 11/15/28
-   Recommendation: Migrate to Lsv3, Lasv3, Lsv4, or Lasv4 series
-   Migration Guide: https://learn.microsoft.com/azure/virtual-machines/...
-
-Found 5 Azure pricing results:
-- L32s v2 Spot: $0.313/hour
-- L32s v2 Low Priority: $0.496/hour
-- L32s v2: $2.480/hour
-```
-
-### Querying a Previous-Generation SKU
-
-**Query:**
-```
-What's the price of E32 v3 in East US?
-```
-
-**Sample Response:**
-```
-ℹ️ PREVIOUS GENERATION: Ev3-series
-   Status: Newer versions available
-   Recommendation: Consider upgrading to Ev5 or Ev6 series
-
-Found 3 Azure pricing results:
-- E32 v3: $2.016/hour
-- E32 v3 Low Priority: $0.403/hour
-```
-
-### Warning Types
-
-| Icon | Status | Meaning |
-|------|--------|--------|
-| ⚠️ | Retirement Announced | SKU will be retired - plan migration |
-| 🚫 | Retired | SKU is no longer available |
-| ℹ️ | Previous Generation | Newer versions available, consider upgrading |
+| Practice | Why |
+|----------|-----|
+| Use specific SKU names | `D4s_v5` not `D4` - avoids ambiguity |
+| Use lowercase region codes | API requires `eastus` not `East US` |
+| Compare savings plans | 1yr and 3yr options can save 30-60% |
+| Try fuzzy discovery | `azure_sku_discovery` finds services with approximate names |
+| Specify currency | Add `currency_code=EUR` for non-USD pricing |
 
 ---
 
 ## Troubleshooting
 
-### No Results Returned
+### No Results
 
-- ❌ Service name misspelled or wrong case
-- ❌ SKU doesn't exist in that region
-- ❌ Region name incorrect
+- Service name misspelled or wrong case
+- SKU doesn't exist in that region
+- Region code incorrect (use lowercase)
 
-**Fix:** Try a broader search first, then narrow down.
+**Solution:** Start with broader search, then add filters.
 
 ### Unexpected Prices
 
-- Check if you're looking at Spot vs On-Demand
-- Windows vs Linux pricing differs significantly
-- Some meters show per-hour, others per-month
+- Check Spot vs On-Demand pricing
+- Windows pricing is ~2x Linux
+- Verify unit (per-hour vs per-month)
 
 ### Too Many Results
 
-- Add more filters (region, SKU name)
-- Use `limit` parameter to reduce results
+- Add region or SKU name filters
+- Use `limit` parameter
 
 ---
 
-<p align="center">
-  <b>Questions?</b> Check <a href="README.md">README.md</a> or open an <a href="https://github.com/charris-msft/azure-pricing-mcp/issues">issue</a>!
-</p>
+**Questions?** Check the [README](../README.md) or open an [issue](https://github.com/msftnadavbh/AzurePricingMCP/issues).
