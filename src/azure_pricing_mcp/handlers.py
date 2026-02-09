@@ -11,6 +11,7 @@ from .formatters import (
     format_cost_estimate_response,
     format_customer_discount_response,
     format_discover_skus_response,
+    format_orphaned_resources_response,
     format_price_compare_response,
     format_price_search_response,
     format_region_recommend_response,
@@ -20,7 +21,7 @@ from .formatters import (
     format_spot_eviction_rates_response,
     format_spot_price_history_response,
 )
-from .services import PricingService, SKUService, SpotService
+from .services import OrphanedResourcesService, PricingService, SKUService, SpotService
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,12 @@ class ToolHandlers:
         pricing_service: PricingService,
         sku_service: SKUService,
         spot_service: SpotService | None = None,
+        orphaned_resources_service: OrphanedResourcesService | None = None,
     ) -> None:
         self._pricing_service = pricing_service
         self._sku_service = sku_service
         self._spot_service = spot_service
+        self._orphaned_resources_service = orphaned_resources_service
 
     def _resolve_discount(self, arguments: dict[str, Any]) -> tuple[float, bool, bool]:
         """Resolve discount settings from arguments.
@@ -197,6 +200,22 @@ class ToolHandlers:
         response_text = format_simulate_eviction_response(result)
         return [TextContent(type="text", text=response_text)]
 
+    def _get_orphaned_resources_service(self) -> OrphanedResourcesService:
+        """Get or create the OrphanedResourcesService (lazy initialization)."""
+        if self._orphaned_resources_service is None:
+            self._orphaned_resources_service = OrphanedResourcesService()
+        return self._orphaned_resources_service
+
+    async def handle_find_orphaned_resources(self, arguments: dict[str, Any]) -> list[TextContent]:
+        """Handle find_orphaned_resources tool calls."""
+        orphaned_service = self._get_orphaned_resources_service()
+        result = await orphaned_service.find_orphaned_resources(
+            days=arguments.get("days", 60),
+            all_subscriptions=arguments.get("all_subscriptions", True),
+        )
+        response_text = format_orphaned_resources_response(result)
+        return [TextContent(type="text", text=response_text)]
+
 
 def register_tool_handlers(server: Any, tool_handlers: ToolHandlers) -> None:
     """Register all tool call handlers with the server.
@@ -243,6 +262,10 @@ def register_tool_handlers(server: Any, tool_handlers: ToolHandlers) -> None:
 
             elif name == "simulate_eviction":
                 return await tool_handlers.handle_simulate_eviction(arguments)
+
+            # Orphaned Resources tool (requires Azure authentication)
+            elif name == "find_orphaned_resources":
+                return await tool_handlers.handle_find_orphaned_resources(arguments)
 
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]

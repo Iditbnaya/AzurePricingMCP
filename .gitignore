@@ -79,3 +79,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local dev scripts and test output
+_local_dev/
+
+# Claude Code temp files
+tmpclaude-*
+
+# Accidental Windows device-name files
+nul
