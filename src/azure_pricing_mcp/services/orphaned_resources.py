@@ -1,9 +1,9 @@
 """Orphaned resources finder for Pricing MCP Server."""
 
 try:
-    from azure.mgmt.resource.subscriptions import SubscriptionClient
+    from azure.mgmt.subscription import SubscriptionClient
 except ImportError:
-    from azure.mgmt.subscription import SubscriptionClient  # type: ignore[assignment]
+    from azure.mgmt.resource.subscriptions import SubscriptionClient
 
 from datetime import datetime, timedelta
 
