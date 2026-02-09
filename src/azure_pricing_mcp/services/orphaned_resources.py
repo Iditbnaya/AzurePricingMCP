@@ -1,4 +1,4 @@
-"""Orphand resources finder for Pricing MCP Server."""
+"""Orphaned resources finder for Pricing MCP Server."""
 
 try:
     from azure.mgmt.resource.subscriptions import SubscriptionClient
@@ -9,14 +9,13 @@ from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkManagementClient
 from datetime import datetime, timedelta
-import requests
-import json
-import os
 
-# Note: azure.mgmt.web, azure.mgmt.costmanagement, azure.mgmt.resourcegraph
+# Note: azure.mgmt.web and azure.mgmt.costmanagement
 # are imported lazily when needed to avoid requiring them at module import time
 
-COST_LOOKBACK_DAYS = 60  
+COST_LOOKBACK_DAYS = 60
+
+
 def get_all_subscriptions():
     credential = DefaultAzureCredential()
     sub_client = SubscriptionClient(credential)
@@ -49,56 +48,6 @@ def scan_orphaned_resources_all_subs(days=60, all_subscriptions=True):
             })
     return results
 
-def automate_find_orphaned_resources_all_subs(api_url: str, days: int = 30):
-    payload = {
-        "all_subscriptions": True,
-        "days": days
-    }
-    response = requests.post(f"{api_url}/find_orphaned_resources", json=payload)
-    print(response.text)
-
-def prompt_user_for_orphaned_resource_scan():
-    subs = get_all_subscriptions()
-    print("Select a subscription to scan for orphaned resources:")
-    for idx, (sub_id, sub_name) in enumerate(subs, 1):
-        print(f"{idx}. {sub_name} ({sub_id})")
-    print("a. All subscriptions")
-    print("t. Top 10 orphaned resources by cost (across all subscriptions)")
-    choice = input("Enter number, 'a' for all, or 't' for top 10: ").strip().lower()
-
-    if choice == 'a':
-        results = scan_orphaned_resources_all_subs()
-        print("\nResults for all subscriptions:")
-        for res in results:
-            print(f"\nSubscription: {res['subscription_name']} ({res['subscription_id']})")
-            if 'error' in res:
-                print(f"  Error: {res['error']}")
-            else:
-                for r in res['orphaned_resources']:
-                    print(f"  - {r}")
-    elif choice == 't':
-        results = scan_orphaned_resources_all_subs()
-        all_orphaned = []
-        for res in results:
-            if 'orphaned_resources' in res:
-                all_orphaned.extend(res['orphaned_resources'])
-        # Assume each orphaned resource is a dict with 'cost' key
-        top10 = sorted(all_orphaned, key=lambda x: x.get('cost', 0), reverse=True)[:10]
-        print("\nTop 10 orphaned resources by cost:")
-        for r in top10:
-            print(r)
-    else:
-        try:
-            idx = int(choice) - 1
-            sub_id, sub_name = subs[idx]
-            compute_client = ComputeManagementClient(DefaultAzureCredential(), sub_id)
-            network_client = NetworkManagementClient(DefaultAzureCredential(), sub_id)
-            orphaned = scan_orphaned_resources(compute_client, network_client, sub_id)
-            print(f"\nResults for {sub_name} ({sub_id}):")
-            for r in orphaned:
-                print(f"  - {r}")
-        except Exception as e:
-            print(f"Invalid selection or error: {e}")
 
 def scan_orphaned_resources(compute_client, network_client, subscription_id, days=30):
     import logging
@@ -177,28 +126,6 @@ def scan_orphaned_resources(compute_client, network_client, subscription_id, day
     logger.info(f"Total orphaned resources found: {len(orphaned_resources)}")
     return orphaned_resources
 
-def load_resource_types(filepath=None):
-    if filepath is None:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        filepath = os.path.join(current_dir, 'services', 'resource_types.json')
-    with open(filepath, 'r') as f:
-        return json.load(f)
-
-def find_orphaned_resources_auto(days=30, all_subscriptions=True):
-    from azure.mgmt.resourcegraph import ResourceGraphClient
-    from azure.mgmt.resourcegraph.models import QueryRequest
-
-    resource_types = load_resource_types()
-    credential = DefaultAzureCredential()
-    graph_client = ResourceGraphClient(credential)
-    subs = [sub_id for sub_id, _ in get_all_subscriptions()] if all_subscriptions else [get_all_subscriptions()[0][0]]
-    results = {}
-    for resource_type in resource_types:
-        query = f"Resources | where type =~ '{resource_type}' and (properties.lastModifiedTime >= ago({days}d) or properties.creationTime >= ago({days}d))"
-        query_request = QueryRequest(subscriptions=subs, query=query)
-        res = graph_client.resources(query_request)
-        results[resource_type] = res.data
-    return results
 
 def get_resource_cost_safe(subscription_id, resource_id, days=30, logger=None):
     """Safely get resource cost with error handling.
@@ -298,30 +225,6 @@ def get_resource_cost(subscription_id, resource_id, days=30):
         # Cost query might fail if resource has no cost data
         raise Exception(f"Cost query failed: {str(e)}")
 
-# In your cost/activity query logic, use COST_LOOKBACK_DAYS instead of a hardcoded 30
-# For example:
-# start_date = datetime.utcnow() - timedelta(days=COST_LOOKBACK_DAYS)
-# end_date = datetime.utcnow()
-# ...existing code for querying costs/resources using start_date and end_date...
-
-# Example usage:
-# automate_find_orphaned_resources_all_subs("http://localhost:8000", days=60)
-
-if __name__ == "__main__":
-    resource_types = load_resource_types()
-    print("Loaded resource types:")
-    for rtype in resource_types:
-        print(rtype)
-    # Automatically scan all subscriptions for orphaned resources for the last 30 days
-    results = scan_orphaned_resources_all_subs(days=30, all_subscriptions=True)
-    print("Orphaned resources scan results:")
-    for res in results:
-        print(f"\nSubscription: {res['subscription_name']} ({res['subscription_id']})")
-        if 'error' in res:
-            print(f"  Error: {res['error']}")
-        else:
-            for r in res['orphaned_resources']:
-                print(f"  - {r}")
 
 # Handler for MCP server: always scan all subscriptions for the last 60 days by default
 
@@ -332,16 +235,3 @@ def handle_find_orphaned_resources(request=None):
         days = request.get('days', 60)
     results = scan_orphaned_resources_all_subs(days=days, all_subscriptions=True)
     return results
-
-def prompt_user_for_orphaned_resource_scan_auto():
-    days = input("Enter number of days to look back: ").strip()
-    try:
-        days = int(days)
-    except:
-        days = 30
-    all_subs = input("Check all subscriptions? (y/n): ").strip().lower() == 'y'
-    results = find_orphaned_resources_auto(days=days, all_subscriptions=all_subs)
-    for rtype, items in results.items():
-        print(f"\nResource type: {rtype}")
-        for item in items:
-            print(item)
