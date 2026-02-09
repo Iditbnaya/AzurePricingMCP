@@ -15,10 +15,10 @@ from azure_pricing_mcp.services.orphaned_resources import (
     scan_orphaned_resources_all_subs,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers: build mock Azure SDK objects
 # ---------------------------------------------------------------------------
+
 
 def _make_disk(name, disk_id, managed_by=None):
     """Create a mock Azure disk object."""
@@ -79,6 +79,7 @@ PLAN_ID = f"/subscriptions/{SUB_ID}/resourceGroups/rg-test/providers/Microsoft.W
 # ===========================================================================
 # scan_orphaned_resources unit tests
 # ===========================================================================
+
 
 class TestScanOrphanedResources:
     """Unit tests for scan_orphaned_resources."""
@@ -192,7 +193,8 @@ class TestScanOrphanedResources:
         network.public_ip_addresses.list_all.return_value = []
         network.load_balancers.list_all.return_value = [
             _make_load_balancer(
-                "healthy-lb", LB_ID,
+                "healthy-lb",
+                LB_ID,
                 backend_pools=[MagicMock()],
                 frontend_configs=[MagicMock()],
             ),
@@ -323,6 +325,7 @@ class TestScanOrphanedResources:
 # scan_orphaned_resources_all_subs tests
 # ===========================================================================
 
+
 class TestScanOrphanedResourcesAllSubs:
     """Tests for scan_orphaned_resources_all_subs."""
 
@@ -391,6 +394,7 @@ class TestScanOrphanedResourcesAllSubs:
 # get_resource_cost_safe tests
 # ===========================================================================
 
+
 class TestGetResourceCostSafe:
     """Tests for get_resource_cost_safe."""
 
@@ -431,6 +435,7 @@ class TestGetResourceCostSafe:
 # COST_LOOKBACK_DAYS constant test
 # ===========================================================================
 
+
 class TestConstants:
     """Tests for module-level constants."""
 
@@ -443,6 +448,7 @@ class TestConstants:
 # OrphanedResourcesService tests
 # ===========================================================================
 
+
 class TestOrphanedResourcesService:
     """Tests for the OrphanedResourcesService async wrapper."""
 
@@ -454,7 +460,14 @@ class TestOrphanedResourcesService:
                 "subscription_id": SUB_ID,
                 "subscription_name": "Test Sub",
                 "orphaned_resources": [
-                    {"name": "disk1", "type": "disk", "cost": 10.0, "id": DISK_ID, "days": 60, "resource_group": "rg-test"},
+                    {
+                        "name": "disk1",
+                        "type": "disk",
+                        "cost": 10.0,
+                        "id": DISK_ID,
+                        "days": 60,
+                        "resource_group": "rg-test",
+                    },
                 ],
             }
         ],
@@ -497,6 +510,7 @@ class TestOrphanedResourcesService:
 # ===========================================================================
 # format_orphaned_resources_response tests
 # ===========================================================================
+
 
 class TestFormatOrphanedResourcesResponse:
     """Tests for the orphaned resources response formatter."""
@@ -569,9 +583,30 @@ class TestFormatOrphanedResourcesResponse:
                 "subscription_id": SUB_ID,
                 "subscription_name": "Sub",
                 "orphaned_resources": [
-                    {"name": "cheap", "type": "public_ip", "cost": 1.0, "id": IP_ID, "days": 60, "resource_group": "rg"},
-                    {"name": "expensive", "type": "disk", "cost": 100.0, "id": DISK_ID, "days": 60, "resource_group": "rg"},
-                    {"name": "medium", "type": "load_balancer", "cost": 50.0, "id": LB_ID, "days": 60, "resource_group": "rg"},
+                    {
+                        "name": "cheap",
+                        "type": "public_ip",
+                        "cost": 1.0,
+                        "id": IP_ID,
+                        "days": 60,
+                        "resource_group": "rg",
+                    },
+                    {
+                        "name": "expensive",
+                        "type": "disk",
+                        "cost": 100.0,
+                        "id": DISK_ID,
+                        "days": 60,
+                        "resource_group": "rg",
+                    },
+                    {
+                        "name": "medium",
+                        "type": "load_balancer",
+                        "cost": 50.0,
+                        "id": LB_ID,
+                        "days": 60,
+                        "resource_group": "rg",
+                    },
                 ],
             }
         ]
@@ -632,8 +667,22 @@ class TestFormatOrphanedResourcesResponse:
                 "orphaned_resources": [
                     {"name": "d1", "type": "disk", "cost": 0.0, "id": DISK_ID, "days": 60, "resource_group": "rg"},
                     {"name": "ip1", "type": "public_ip", "cost": 0.0, "id": IP_ID, "days": 60, "resource_group": "rg"},
-                    {"name": "asp1", "type": "app_service_plan", "cost": 0.0, "id": PLAN_ID, "days": 60, "resource_group": "rg"},
-                    {"name": "lb1", "type": "load_balancer", "cost": 0.0, "id": LB_ID, "days": 60, "resource_group": "rg"},
+                    {
+                        "name": "asp1",
+                        "type": "app_service_plan",
+                        "cost": 0.0,
+                        "id": PLAN_ID,
+                        "days": 60,
+                        "resource_group": "rg",
+                    },
+                    {
+                        "name": "lb1",
+                        "type": "load_balancer",
+                        "cost": 0.0,
+                        "id": LB_ID,
+                        "days": 60,
+                        "resource_group": "rg",
+                    },
                 ],
             }
         ]
@@ -641,8 +690,8 @@ class TestFormatOrphanedResourcesResponse:
 
         assert "\U0001f4be" in output  # disk
         assert "\U0001f310" in output  # public ip
-        assert "\u2699" in output      # app service plan
-        assert "\u2696" in output      # load balancer
+        assert "\u2699" in output  # app service plan
+        assert "\u2696" in output  # load balancer
 
     def test_subscriptions_with_orphans_count(self):
         """Subscriptions with orphans are counted correctly."""
@@ -674,6 +723,7 @@ class TestFormatOrphanedResourcesResponse:
 # ===========================================================================
 # handle_find_orphaned_resources (MCP handler) tests
 # ===========================================================================
+
 
 class TestHandleFindOrphanedResourcesMCP:
     """Tests for the MCP server handler integration."""
@@ -751,7 +801,14 @@ class TestHandleFindOrphanedResourcesMCP:
                 "subscription_id": SUB_ID,
                 "subscription_name": "Test",
                 "orphaned_resources": [
-                    {"name": "disk1", "type": "disk", "cost": 15.0, "id": DISK_ID, "days": 60, "resource_group": "rg-test"},
+                    {
+                        "name": "disk1",
+                        "type": "disk",
+                        "cost": 15.0,
+                        "id": DISK_ID,
+                        "days": 60,
+                        "resource_group": "rg-test",
+                    },
                 ],
             }
         ]

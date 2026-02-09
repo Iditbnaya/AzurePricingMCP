@@ -679,9 +679,10 @@ def format_orphaned_resources_response(result: list[dict[str, Any]]) -> str:
 
         # Table header
         response_lines.append(f"**Found {len(orphaned)} orphaned resource(s):**\n")
-        response_lines.append("| Type | Name | Resource Group | Cost (Last {0} days) |".format(
-            orphaned[0].get("days", 60) if orphaned else 60
-        ))
+        response_lines.append("| Type | Name | Resource Group | Cost (Last {} days) |".format(
+                orphaned[0].get("days", 60) if orphaned else 60
+            )
+        )
         response_lines.append("|------|------|----------------|----------------------|")
 
         # Sort by cost
@@ -694,9 +695,7 @@ def format_orphaned_resources_response(result: list[dict[str, Any]]) -> str:
             res_rg = resource.get("resource_group", "Unknown")
 
             emoji = _get_resource_type_emoji(res_type)
-            response_lines.append(
-                f"| {emoji} {res_type} | {res_name} | {res_rg} | ${res_cost:.2f} |"
-            )
+            response_lines.append(f"| {emoji} {res_type} | {res_name} | {res_rg} | ${res_cost:.2f} |")
 
         response_lines.append("")
 
@@ -728,4 +727,3 @@ def _get_resource_type_emoji(resource_type: str) -> str:
         return "🖥️"
     else:
         return "📦"
-
