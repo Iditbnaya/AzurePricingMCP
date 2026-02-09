@@ -3,7 +3,7 @@
 try:
     from azure.mgmt.resource.subscriptions import SubscriptionClient
 except ImportError:
-    from azure.mgmt.subscription import SubscriptionClient
+    from azure.mgmt.subscription import SubscriptionClient  # type: ignore[assignment]
 
 from datetime import datetime, timedelta
 

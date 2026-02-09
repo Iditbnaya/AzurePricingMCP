@@ -679,7 +679,8 @@ def format_orphaned_resources_response(result: list[dict[str, Any]]) -> str:
 
         # Table header
         response_lines.append(f"**Found {len(orphaned)} orphaned resource(s):**\n")
-        response_lines.append("| Type | Name | Resource Group | Cost (Last {} days) |".format(
+        response_lines.append(
+            "| Type | Name | Resource Group | Cost (Last {} days) |".format(
                 orphaned[0].get("days", 60) if orphaned else 60
             )
         )
