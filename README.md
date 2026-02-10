@@ -180,7 +180,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - **Original Author**: [@charris-msft](https://github.com/charris-msft)
 - **Current Maintainer**: [@msftnadavbh](https://github.com/msftnadavbh)
-- **Contributors**: [@notoriousmic](https://github.com/notoriousmic)
+- **Contributors**: [@notoriousmic](https://github.com/notoriousmic), [@iditbnaya](https://github.com/iditbnaya)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
 
