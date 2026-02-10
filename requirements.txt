@@ -21,5 +21,13 @@ sse-starlette>=1.8.0
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 
-# Azure authentication (for Spot VM tools)
+# Azure authentication (for Spot VM tools and Orphaned Resources)
 azure-identity>=1.15.0
+azure-mgmt-compute>=30.0.0
+azure-mgmt-network>=30.0.0
+azure-mgmt-resource>=20.0.0
+azure-mgmt-subscription>=3.0.0
+six>=1.17.0
+azure-mgmt-web>=10.1.0
+azure-mgmt-resourcegraph>=8.0.1
+azure-mgmt-costmanagement>=4.0.1
