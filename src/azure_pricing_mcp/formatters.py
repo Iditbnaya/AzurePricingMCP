@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from azure_pricing_mcp.config import DEFAULT_CUSTOMER_DISCOUNT
+from .config import DEFAULT_CUSTOMER_DISCOUNT
 
 # Discount tip messages
 DISCOUNT_TIP_DEFAULT_USED = (
@@ -607,3 +607,124 @@ def _get_eviction_rate_emoji(rate: str) -> str:
     elif "20" in rate_lower:
         return "⛔"  # Very high risk
     return "❓"
+
+
+# =============================================================================
+# Orphaned Resources Formatter
+# =============================================================================
+
+
+def format_orphaned_resources_response(result: list[dict[str, Any]]) -> str:
+    """Format the orphaned resources response for display.
+
+    Args:
+        result: List of subscription results with orphaned resources
+
+    Returns:
+        Formatted response text
+    """
+    if not result:
+        return "No subscriptions found or no orphaned resources detected."
+
+    response_lines = [
+        "### 🔍 Orphaned Resources Scan Results\n",
+    ]
+
+    total_orphaned = 0
+    total_cost = 0.0
+    total_subscriptions = len(result)
+    subscriptions_with_orphans = 0
+
+    # Calculate totals
+    for sub_result in result:
+        if "error" in sub_result:
+            continue
+        orphaned = sub_result.get("orphaned_resources", [])
+        if orphaned:
+            subscriptions_with_orphans += 1
+            total_orphaned += len(orphaned)
+            for resource in orphaned:
+                total_cost += resource.get("cost", 0.0)
+
+    # Summary
+    response_lines.append(f"**Subscriptions Scanned:** {total_subscriptions}")
+    response_lines.append(f"**Subscriptions with Orphans:** {subscriptions_with_orphans}")
+    response_lines.append(f"**Total Orphaned Resources:** {total_orphaned}")
+    response_lines.append(f"**Total Estimated Cost:** ${total_cost:.2f}\n")
+
+    # Detailed results per subscription
+    for sub_result in result:
+        sub_id = sub_result.get("subscription_id", "Unknown")
+        sub_name = sub_result.get("subscription_name", "Unknown")
+
+        response_lines.append(f"#### 📋 Subscription: {sub_name}")
+        response_lines.append(f"ID: `{sub_id}`\n")
+
+        if "error" in sub_result:
+            response_lines.append(f"⚠️ **Error:** {sub_result['error']}\n")
+            continue
+
+        orphaned = sub_result.get("orphaned_resources", [])
+        if not orphaned:
+            response_lines.append("✅ No orphaned resources found.\n")
+            continue
+
+        # Group by type
+        by_type: dict[str, list[dict]] = {}
+        for resource in orphaned:
+            res_type = resource.get("type", "unknown")
+            if res_type not in by_type:
+                by_type[res_type] = []
+            by_type[res_type].append(resource)
+
+        # Table header
+        response_lines.append(f"**Found {len(orphaned)} orphaned resource(s):**\n")
+        response_lines.append(
+            "| Type | Name | Resource Group | Cost (Last {} days) |".format(
+                orphaned[0].get("days", 60) if orphaned else 60
+            )
+        )
+        response_lines.append("|------|------|----------------|----------------------|")
+
+        # Sort by cost
+        sorted_resources = sorted(orphaned, key=lambda x: x.get("cost", 0), reverse=True)
+
+        for resource in sorted_resources:
+            res_type = resource.get("type", "unknown")
+            res_name = resource.get("name", "N/A")
+            res_cost = resource.get("cost", 0.0)
+            res_rg = resource.get("resource_group", "Unknown")
+
+            emoji = _get_resource_type_emoji(res_type)
+            response_lines.append(f"| {emoji} {res_type} | {res_name} | {res_rg} | ${res_cost:.2f} |")
+
+        response_lines.append("")
+
+    # Add recommendations
+    response_lines.append("### 💡 Recommendations\n")
+    response_lines.append("- **Review** each orphaned resource to determine if it's still needed")
+    response_lines.append("- **Delete** unused resources to reduce costs")
+    response_lines.append("- **Set up alerts** to monitor for orphaned resources")
+    response_lines.append("- **Tag resources** to track ownership and purpose\n")
+
+    return "\n".join(response_lines)
+
+
+def _get_resource_type_emoji(resource_type: str) -> str:
+    """Get an emoji indicator for resource type."""
+    type_lower = resource_type.lower()
+
+    if "disk" in type_lower:
+        return "💾"
+    elif "ip" in type_lower or "public" in type_lower:
+        return "🌐"
+    elif "app_service" in type_lower or "plan" in type_lower:
+        return "⚙️"
+    elif "load_balancer" in type_lower or "balancer" in type_lower:
+        return "⚖️"
+    elif "network" in type_lower:
+        return "🔌"
+    elif "vm" in type_lower or "virtual" in type_lower:
+        return "🖥️"
+    else:
+        return "📦"

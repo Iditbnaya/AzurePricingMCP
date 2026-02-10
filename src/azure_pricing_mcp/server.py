@@ -126,6 +126,8 @@ def _register_tool_handlers(server: Server, pricing_server: AzurePricingServer) 
             return await handlers.handle_spot_price_history(arguments)
         elif name == "simulate_eviction":
             return await handlers.handle_simulate_eviction(arguments)
+        elif name == "find_orphaned_resources":
+            return await handlers.handle_find_orphaned_resources(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 

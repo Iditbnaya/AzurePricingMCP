@@ -42,6 +42,7 @@ Then configure your AI assistant. See [Integrations](#-integrations).
 - **SKU Discovery** - Fuzzy matching for service names
 - **Retirement Warnings** - Alerts for retiring VM SKUs
 - **Spot VM Intelligence** - Eviction rates and price history (requires Azure auth)
+- **Orphaned Resources** - Detect unused resources with real cost calculation (requires Azure auth)
 
 📖 **[Full feature details →](docs/FEATURES.md)**
 
@@ -49,7 +50,7 @@ Then configure your AI assistant. See [Integrations](#-integrations).
 
 ## 🛠️ Tools
 
-11 tools available for AI assistants:
+12 tools available for AI assistants:
 
 - `azure_price_search` - Search retail prices
 - `azure_price_compare` - Compare across regions/SKUs
@@ -58,6 +59,7 @@ Then configure your AI assistant. See [Integrations](#-integrations).
 - `azure_region_recommend` - Find cheapest regions
 - `azure_discover_skus` / `azure_sku_discovery` - SKU lookup
 - `spot_eviction_rates` / `spot_price_history` / `simulate_eviction` - Spot VM tools
+- `find_orphaned_resources` - Detect orphaned resources with cost analysis
 
 📖 **[Tool documentation →](docs/TOOLS.md)**
 
@@ -163,6 +165,7 @@ pytest tests/
 | [docs/TOOLS.md](docs/TOOLS.md) | Tool documentation |
 | [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) | VS Code & Claude setup |
 | [docs/USAGE_EXAMPLES.md](docs/USAGE_EXAMPLES.md) | Detailed examples |
+| [docs/ORPHANED_RESOURCES.md](docs/ORPHANED_RESOURCES.md) | Orphaned resources guide |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 
 ---
