@@ -7,9 +7,9 @@ from .sku import SKUService
 from .spot import SpotService
 
 __all__ = [
+    "OrphanedResourcesService",
     "PricingService",
     "RetirementService",
     "SKUService",
     "SpotService",
-    "OrphanedResourcesService",
 ]

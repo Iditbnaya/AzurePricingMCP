@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from .config import DEFAULT_CUSTOMER_DISCOUNT
+from azure_pricing_mcp.config import DEFAULT_CUSTOMER_DISCOUNT
 
 # Discount tip messages
 DISCOUNT_TIP_DEFAULT_USED = (
@@ -614,117 +614,73 @@ def _get_eviction_rate_emoji(rate: str) -> str:
 # =============================================================================
 
 
-def format_orphaned_resources_response(result: list[dict[str, Any]]) -> str:
-    """Format the orphaned resources response for display.
+def format_orphaned_resources_response(result: dict[str, Any]) -> str:
+    """Format the orphaned resources scan response for display.
 
-    Args:
-        result: List of subscription results with orphaned resources
-
-    Returns:
-        Formatted response text
+    Groups resources by type and renders per-type summary sections
+    with a cost breakdown table.
     """
-    if not result:
-        return "No subscriptions found or no orphaned resources detected."
+    # Handle authentication / API errors
+    if "error" in result:
+        return _format_spot_error(result)
+
+    subscriptions = result.get("subscriptions", [])
+    total_orphaned = result.get("total_orphaned", 0)
+    total_cost = result.get("total_estimated_cost", 0.0)
+    lookback = result.get("lookback_days", 60)
+    currency = result.get("currency", "USD")
+
+    if total_orphaned == 0:
+        return (
+            "### ✅ No Orphaned Resources Found\n\n"
+            f"Scanned {len(subscriptions)} subscription(s) — "
+            "no orphaned disks, NICs, public IPs, NSGs, or empty App Service Plans detected."
+        )
+
+    # Collect all orphaned resources across subscriptions
+    all_orphaned: list[dict[str, Any]] = []
+    for sub in subscriptions:
+        all_orphaned.extend(sub.get("orphaned_resources", []))
+
+    # Group by orphan type
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    for resource in all_orphaned:
+        res_type = resource.get("orphan_type", "Unknown")
+        if res_type not in by_type:
+            by_type[res_type] = []
+        by_type[res_type].append(resource)
 
     response_lines = [
-        "### 🔍 Orphaned Resources Scan Results\n",
+        "### 🔍 Orphaned Resource Report\n",
+        f"**Total orphaned resources:** {total_orphaned}",
+        f"**Estimated wasted cost ({lookback} days):** ${total_cost:,.2f} {currency}",
+        f"**Subscriptions scanned:** {len(subscriptions)}\n",
     ]
 
-    total_orphaned = 0
-    total_cost = 0.0
-    total_subscriptions = len(result)
-    subscriptions_with_orphans = 0
+    # Per-type summary table
+    response_lines.append("#### Summary by Type\n")
+    response_lines.append("| Resource Type | Count | Est. Cost |")
+    response_lines.append("|---------------|-------|-----------|")
+    for rtype in sorted(by_type.keys()):
+        resources = by_type[rtype]
+        type_cost = sum(r.get("estimated_cost_usd") or 0.0 for r in resources)
+        response_lines.append(f"| {rtype} | {len(resources)} | ${type_cost:,.2f} |")
+    response_lines.append("")
 
-    # Calculate totals
-    for sub_result in result:
-        if "error" in sub_result:
-            continue
-        orphaned = sub_result.get("orphaned_resources", [])
-        if orphaned:
-            subscriptions_with_orphans += 1
-            total_orphaned += len(orphaned)
-            for resource in orphaned:
-                total_cost += resource.get("cost", 0.0)
-
-    # Summary
-    response_lines.append(f"**Subscriptions Scanned:** {total_subscriptions}")
-    response_lines.append(f"**Subscriptions with Orphans:** {subscriptions_with_orphans}")
-    response_lines.append(f"**Total Orphaned Resources:** {total_orphaned}")
-    response_lines.append(f"**Total Estimated Cost:** ${total_cost:.2f}\n")
-
-    # Detailed results per subscription
-    for sub_result in result:
-        sub_id = sub_result.get("subscription_id", "Unknown")
-        sub_name = sub_result.get("subscription_name", "Unknown")
-
-        response_lines.append(f"#### 📋 Subscription: {sub_name}")
-        response_lines.append(f"ID: `{sub_id}`\n")
-
-        if "error" in sub_result:
-            response_lines.append(f"⚠️ **Error:** {sub_result['error']}\n")
-            continue
-
-        orphaned = sub_result.get("orphaned_resources", [])
-        if not orphaned:
-            response_lines.append("✅ No orphaned resources found.\n")
-            continue
-
-        # Group by type
-        by_type: dict[str, list[dict]] = {}
-        for resource in orphaned:
-            res_type = resource.get("type", "unknown")
-            if res_type not in by_type:
-                by_type[res_type] = []
-            by_type[res_type].append(resource)
-
-        # Table header
-        response_lines.append(f"**Found {len(orphaned)} orphaned resource(s):**\n")
-        response_lines.append(
-            "| Type | Name | Resource Group | Cost (Last {} days) |".format(
-                orphaned[0].get("days", 60) if orphaned else 60
-            )
-        )
-        response_lines.append("|------|------|----------------|----------------------|")
-
-        # Sort by cost
-        sorted_resources = sorted(orphaned, key=lambda x: x.get("cost", 0), reverse=True)
-
-        for resource in sorted_resources:
-            res_type = resource.get("type", "unknown")
-            res_name = resource.get("name", "N/A")
-            res_cost = resource.get("cost", 0.0)
-            res_rg = resource.get("resource_group", "Unknown")
-
-            emoji = _get_resource_type_emoji(res_type)
-            response_lines.append(f"| {emoji} {res_type} | {res_name} | {res_rg} | ${res_cost:.2f} |")
-
+    # Detail per type
+    for rtype in sorted(by_type.keys()):
+        resources = by_type[rtype]
+        response_lines.append(f"#### {rtype} ({len(resources)})\n")
+        response_lines.append("| Name | Resource Group | Location | Cost |")
+        response_lines.append("|------|----------------|----------|------|")
+        for r in sorted(resources, key=lambda x: -(x.get("estimated_cost_usd") or 0.0)):
+            name = r.get("name", "N/A")
+            rg = r.get("resourceGroup", "N/A")
+            loc = r.get("location", "N/A")
+            cost = r.get("estimated_cost_usd")
+            cost_str = f"${cost:,.2f}" if cost is not None else "N/A"
+            response_lines.append(f"| {name} | {rg} | {loc} | {cost_str} |")
         response_lines.append("")
 
-    # Add recommendations
-    response_lines.append("### 💡 Recommendations\n")
-    response_lines.append("- **Review** each orphaned resource to determine if it's still needed")
-    response_lines.append("- **Delete** unused resources to reduce costs")
-    response_lines.append("- **Set up alerts** to monitor for orphaned resources")
-    response_lines.append("- **Tag resources** to track ownership and purpose\n")
-
+    response_lines.append(result.get("note", ""))
     return "\n".join(response_lines)
-
-
-def _get_resource_type_emoji(resource_type: str) -> str:
-    """Get an emoji indicator for resource type."""
-    type_lower = resource_type.lower()
-
-    if "disk" in type_lower:
-        return "💾"
-    elif "ip" in type_lower or "public" in type_lower:
-        return "🌐"
-    elif "app_service" in type_lower or "plan" in type_lower:
-        return "⚙️"
-    elif "load_balancer" in type_lower or "balancer" in type_lower:
-        return "⚖️"
-    elif "network" in type_lower:
-        return "🔌"
-    elif "vm" in type_lower or "virtual" in type_lower:
-        return "🖥️"
-    else:
-        return "📦"

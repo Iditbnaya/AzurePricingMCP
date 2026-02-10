@@ -1,6 +1,6 @@
 # Available Tools
 
-The Azure Pricing MCP Server provides 11 tools for querying Azure pricing information.
+The Azure Pricing MCP Server provides 12 tools for querying Azure pricing information.
 
 ---
 
@@ -33,6 +33,16 @@ These tools require Azure authentication. See [FEATURES.md](FEATURES.md#spot-vm-
 
 ---
 
+## Cost Optimization Tools
+
+These tools require Azure authentication. See [FEATURES.md](FEATURES.md#orphaned-resource-detection) for details.
+
+| Tool | Description |
+|------|-------------|
+| `find_orphaned_resources` | Detect orphaned resources (unattached disks, NICs, public IPs, NSGs, empty App Service Plans) and compute wasted cost |
+
+---
+
 ## Example Queries
 
 Once configured, ask your AI assistant:
@@ -48,6 +58,7 @@ Once configured, ask your AI assistant:
 | **Storage** | "What are the blob storage pricing tiers?" |
 | **Spot Eviction** | "What are the eviction rates for D4s_v4 in eastus?" |
 | **Spot History** | "Show me Spot price history for D2s_v4 in westus2" |
+| **Orphaned Resources** | "Find orphaned resources across all my subscriptions" |
 
 ### Sample Response
 

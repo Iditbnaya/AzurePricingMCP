@@ -347,18 +347,18 @@ def get_tool_definitions() -> list[Tool]:
         # Orphaned Resources Tool (requires Azure authentication)
         Tool(
             name="find_orphaned_resources",
-            description="Find orphaned Azure resources across all subscriptions and calculate their costs. Identifies unattached disks, public IPs, unused app service plans, and load balancers without backends. Requires Azure authentication (az login or environment variables). Returns detailed cost analysis for each orphaned resource.",
+            description="Detect orphaned Azure resources (unattached disks, NICs, public IPs, NSGs, empty App Service Plans) across subscriptions and compute their real historical cost via Azure Cost Management. Requires Azure authentication (az login or environment variables).",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "days": {
                         "type": "integer",
-                        "description": "Number of days to look back for cost calculation (default: 60)",
+                        "description": "Number of days to look back for cost data (default: 60)",
                         "default": 60,
                     },
                     "all_subscriptions": {
                         "type": "boolean",
-                        "description": "Whether to scan all accessible subscriptions (default: true)",
+                        "description": "Scan all accessible subscriptions (default: true). Set to false to scan only the first subscription.",
                         "default": True,
                     },
                 },

@@ -1,35 +1,56 @@
-"""Service for finding orphaned Azure resources."""
+"""Orphaned resources MCP service wrapper.
+
+Thin async service layer that delegates to OrphanedResourceScanner,
+following the same pattern as SpotService.
+"""
 
 import logging
-from typing import Any, cast
+from typing import Any
 
-from .orphaned_resources import handle_find_orphaned_resources
+from ..auth import AzureCredentialManager, get_credential_manager
+from .orphaned_resources import OrphanedResourceScanner
 
 logger = logging.getLogger(__name__)
 
 
 class OrphanedResourcesService:
-    """Service for scanning and identifying orphaned Azure resources."""
+    """MCP-facing async service for orphaned resource detection."""
 
-    def __init__(self) -> None:
-        """Initialize the Orphaned Resources Service."""
-        pass
+    def __init__(
+        self,
+        credential_manager: AzureCredentialManager | None = None,
+    ) -> None:
+        """Initialize the orphaned resources service.
+
+        Args:
+            credential_manager: Optional credential manager. If not provided,
+                              uses the singleton instance.
+        """
+        self._credential_manager = credential_manager or get_credential_manager()
+        self._scanner = OrphanedResourceScanner(self._credential_manager)
 
     async def find_orphaned_resources(
         self,
         days: int = 60,
         all_subscriptions: bool = True,
-    ) -> list[dict[str, Any]]:
-        """Find orphaned resources across Azure subscriptions."""
+    ) -> dict[str, Any]:
+        """Find orphaned resources across Azure subscriptions.
+
+        Args:
+            days: Number of days to look back for cost data.
+            all_subscriptions: If True, scan all accessible subscriptions.
+
+        Returns:
+            Dict with orphaned resources grouped by subscription, or error dict.
+        """
         logger.info(f"Scanning for orphaned resources (lookback: {days} days, all subs: {all_subscriptions})")
 
-        try:
-            request = {"days": days, "all_subscriptions": all_subscriptions}
-            results = handle_find_orphaned_resources(request)
+        result = await self._scanner.scan(days=days, all_subscriptions=all_subscriptions)
 
-            logger.info(f"Found {len(results)} subscription results")
-            return cast(list[dict[str, Any]], results)
+        if "error" not in result:
+            logger.info(
+                f"Found {result.get('total_orphaned', 0)} orphaned resources "
+                f"across {len(result.get('subscriptions', []))} subscription(s)"
+            )
 
-        except Exception as e:
-            logger.error(f"Error finding orphaned resources: {e}")
-            raise
+        return result
