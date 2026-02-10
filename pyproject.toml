@@ -39,6 +39,9 @@ dependencies = [
     "azure-identity>=1.15.0",
 ]
 
+# Note: azure-mgmt-resourcegraph and six are NOT needed.
+# This project uses direct REST API calls via aiohttp, not Azure SDK management clients.
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",

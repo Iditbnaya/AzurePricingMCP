@@ -92,6 +92,41 @@ The Spot VM tools will return a friendly message with authentication instruction
 
 ---
 
+## Orphaned Resource Detection
+
+Detect orphaned Azure resources across subscriptions and calculate their real wasted cost using the Azure Cost Management API.
+
+### Detected Resource Types
+
+| Resource Type | Detection Criteria |
+|---------------|--------------------|
+| Unattached Disks | Managed disks with no `managedBy` (not attached to any VM) |
+| Orphaned NICs | Network interfaces not attached to a VM or private endpoint |
+| Orphaned Public IPs | Public IPs not associated with any IP configuration or NAT gateway |
+| Orphaned NSGs | Network security groups not attached to any NIC or subnet |
+| Empty App Service Plans | App Service Plans with zero hosted apps |
+
+### Authentication Required
+
+Orphaned resource scanning requires the same Azure authentication as Spot VM tools (see above).
+
+### Required Permissions
+
+| Permission | Built-in Role | Purpose |
+|------------|---------------|---------|
+| `Microsoft.ResourceGraph/resources/read` | Reader | Query Resource Graph for orphaned resources |
+| `Microsoft.CostManagement/query/action` | Cost Management Reader | Look up historical cost per resource |
+
+### Example Usage
+
+```
+"Find all orphaned resources across my Azure subscriptions"
+"Scan for unattached disks and show me how much they cost"
+"Check for orphaned resources in the last 30 days"
+```
+
+---
+
 ## Docker Support
 
 Run in containers for easy deployment and isolation. See [INSTALL.md](../INSTALL.md) for Docker setup instructions.

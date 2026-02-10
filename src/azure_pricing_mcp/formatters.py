@@ -607,3 +607,80 @@ def _get_eviction_rate_emoji(rate: str) -> str:
     elif "20" in rate_lower:
         return "⛔"  # Very high risk
     return "❓"
+
+
+# =============================================================================
+# Orphaned Resources Formatter
+# =============================================================================
+
+
+def format_orphaned_resources_response(result: dict[str, Any]) -> str:
+    """Format the orphaned resources scan response for display.
+
+    Groups resources by type and renders per-type summary sections
+    with a cost breakdown table.
+    """
+    # Handle authentication / API errors
+    if "error" in result:
+        return _format_spot_error(result)
+
+    subscriptions = result.get("subscriptions", [])
+    total_orphaned = result.get("total_orphaned", 0)
+    total_cost = result.get("total_estimated_cost", 0.0)
+    lookback = result.get("lookback_days", 60)
+    currency = result.get("currency", "USD")
+
+    if total_orphaned == 0:
+        return (
+            "### ✅ No Orphaned Resources Found\n\n"
+            f"Scanned {len(subscriptions)} subscription(s) — "
+            "no orphaned disks, NICs, public IPs, NSGs, or empty App Service Plans detected."
+        )
+
+    # Collect all orphaned resources across subscriptions
+    all_orphaned: list[dict[str, Any]] = []
+    for sub in subscriptions:
+        all_orphaned.extend(sub.get("orphaned_resources", []))
+
+    # Group by orphan type
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    for resource in all_orphaned:
+        res_type = resource.get("orphan_type", "Unknown")
+        if res_type not in by_type:
+            by_type[res_type] = []
+        by_type[res_type].append(resource)
+
+    response_lines = [
+        "### 🔍 Orphaned Resource Report\n",
+        f"**Total orphaned resources:** {total_orphaned}",
+        f"**Estimated wasted cost ({lookback} days):** ${total_cost:,.2f} {currency}",
+        f"**Subscriptions scanned:** {len(subscriptions)}\n",
+    ]
+
+    # Per-type summary table
+    response_lines.append("#### Summary by Type\n")
+    response_lines.append("| Resource Type | Count | Est. Cost |")
+    response_lines.append("|---------------|-------|-----------|")
+    for rtype in sorted(by_type.keys()):
+        resources = by_type[rtype]
+        type_cost = sum(r.get("estimated_cost_usd") or 0.0 for r in resources)
+        response_lines.append(f"| {rtype} | {len(resources)} | ${type_cost:,.2f} |")
+    response_lines.append("")
+
+    # Detail per type
+    for rtype in sorted(by_type.keys()):
+        resources = by_type[rtype]
+        response_lines.append(f"#### {rtype} ({len(resources)})\n")
+        response_lines.append("| Name | Resource Group | Location | Cost |")
+        response_lines.append("|------|----------------|----------|------|")
+        for r in sorted(resources, key=lambda x: -(x.get("estimated_cost_usd") or 0.0)):
+            name = r.get("name", "N/A")
+            rg = r.get("resourceGroup", "N/A")
+            loc = r.get("location", "N/A")
+            cost = r.get("estimated_cost_usd")
+            cost_str = f"${cost:,.2f}" if cost is not None else "N/A"
+            response_lines.append(f"| {name} | {rg} | {loc} | {cost_str} |")
+        response_lines.append("")
+
+    response_lines.append(result.get("note", ""))
+    return "\n".join(response_lines)

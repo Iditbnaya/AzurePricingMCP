@@ -344,4 +344,24 @@ def get_tool_definitions() -> list[Tool]:
                 "required": ["vm_resource_id"],
             },
         ),
+        # Orphaned Resources Tool (requires Azure authentication)
+        Tool(
+            name="find_orphaned_resources",
+            description="Detect orphaned Azure resources (unattached disks, NICs, public IPs, NSGs, empty App Service Plans) across subscriptions and compute their real historical cost via Azure Cost Management. Requires Azure authentication (az login or environment variables).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "days": {
+                        "type": "integer",
+                        "description": "Number of days to look back for cost data (default: 60)",
+                        "default": 60,
+                    },
+                    "all_subscriptions": {
+                        "type": "boolean",
+                        "description": "Scan all accessible subscriptions (default: true). Set to false to scan only the first subscription.",
+                        "default": True,
+                    },
+                },
+            },
+        ),
     ]
